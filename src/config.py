@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     app_secret_key: SecretStr = SecretStr("change-me-to-a-random-256-bit-hex-string")
     api_v1_prefix: str = "/api/v1"
     use_dev_fallback: bool = False  # Use SQLite + local fs + in-memory cache (no external deps)
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    cors_allowed_origins: str = "http://localhost:5173"  # comma-separated
 
     # ── Database ──
     database_url: str = "postgresql+asyncpg://docmind:docmind@localhost:5432/docmind"
@@ -103,6 +105,10 @@ class Settings(BaseSettings):
     @property
     def github_oauth_token_encryption_key_value(self) -> str:
         return self.github_oauth_token_encryption_key.get_secret_value()
+
+    @property
+    def cors_allowed_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
 
 
 settings = Settings()
