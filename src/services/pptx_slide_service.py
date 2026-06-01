@@ -139,6 +139,144 @@ def _get_alignment(para) -> str:
         return "left"
 
 
+def _extract_image(shape) -> tuple[bytes, str] | None:
+    """Extract image blob and content_type from a shape (picture, fill, etc.)."""
+    # Direct picture
+    if hasattr(shape, "image") and shape.image:
+        img = shape.image
+        return img.blob, img.content_type or "image/png"
+
+    # Fill image (e.g. shape background)
+    try:
+        fill = shape.fill
+        if fill and hasattr(fill, "type") and str(fill.type) == "PATTERN":
+            pass  # skip patterns
+    except Exception:
+        pass
+
+    return None
+
+
+def _is_group(shape) -> bool:
+    """Check if a shape is a group shape (has sub-shapes)."""
+    try:
+        st = shape.shape_type
+        # MSO_SHAPE_TYPE.GROUP = 6
+        if st is not None and int(st) == 6:
+            return True
+    except Exception:
+        pass
+    # Fallback: check if it has a 'shapes' attribute with sub-elements
+    if hasattr(shape, "shapes"):
+        try:
+            sub = shape.shapes
+            if sub is not None and len(sub) > 0:
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def _count_images_recursive(shapes, slide_img_idx: int, result_shapes: list, scale: float) -> tuple[int, list]:
+    """Recursively extract shapes including from groups. Returns (next_image_idx, shapes)."""
+
+    next_idx = slide_img_idx
+    all_shapes: list = []
+
+    for sh_idx, shape in enumerate(shapes):
+        # Check if this is a group shape
+        if _is_group(shape):
+            # Recursively process group shapes
+            sub_idx, sub_shapes = _count_images_recursive(shape.shapes, next_idx, [], scale)
+            next_idx = sub_idx
+            # Adjust positions to be relative to the group's position
+            for sub in sub_shapes:
+                sub.left += round(shape.left * EMU_TO_PX * scale, 1)
+                sub.top += round(shape.top * EMU_TO_PX * scale, 1)
+            all_shapes.extend(sub_shapes)
+            continue
+
+        sh_data = SlideShapeData(
+            shape_idx=sh_idx,
+            shape_type="other",
+            left=round(shape.left * EMU_TO_PX * scale, 1),
+            top=round(shape.top * EMU_TO_PX * scale, 1),
+            width=round(shape.width * EMU_TO_PX * scale, 1),
+            height=round(shape.height * EMU_TO_PX * scale, 1),
+        )
+
+        img = _extract_image(shape)
+        if img is not None:
+            sh_data.shape_type = "picture"
+            sh_data.has_image = True
+            sh_data.image_index = next_idx
+            next_idx += 1
+            all_shapes.append(sh_data)
+            continue
+
+        _process_text_shape(shape, sh_data)
+        all_shapes.append(sh_data)
+
+    return next_idx, all_shapes
+
+
+def _process_text_shape(shape, sh_data: SlideShapeData) -> None:
+    """Fill in text-related fields on sh_data from a shape."""
+    if not shape.has_text_frame:
+        return
+
+    sh_data.shape_type = "text"
+    role = _shape_role(shape)
+    sh_data.is_title = (role == "title")
+    tf = shape.text_frame
+    paragraphs: list[dict[str, Any]] = []
+    all_text: list[str] = []
+
+    for para in tf.paragraphs:
+        para_runs: list[dict[str, Any]] = []
+        para_text_parts: list[str] = []
+
+        for run in para.runs:
+            font_info = _get_effective_font(run, role == "title")
+            run_data: dict[str, Any] = {"text": run.text, **font_info}
+            para_runs.append(run_data)
+            para_text_parts.append(run.text)
+
+        para_text = "".join(para_text_parts)
+        if para_text.strip():
+            all_text.append(para_text)
+
+        paragraphs.append({
+            "text": para_text,
+            "runs": para_runs,
+            "alignment": _get_alignment(para),
+            "level": para.level if para.level else 0,
+        })
+
+    sh_data.paragraphs = paragraphs
+    sh_data.text = "\n".join(all_text)
+
+    for para in paragraphs:
+        if para["runs"]:
+            first = para["runs"][0]
+            sh_data.font_size = first.get("font_size")
+            sh_data.font_name = first.get("font_name")
+            sh_data.font_bold = first.get("bold", False)
+            sh_data.font_italic = first.get("italic", False)
+            sh_data.font_color = first.get("color")
+            sh_data.alignment = para["alignment"]
+            break
+
+    if sh_data.font_size is None:
+        sh_data.font_size = 28 if role == "title" else 18
+    if role == "title" and not sh_data.font_bold:
+        sh_data.font_bold = True
+
+    fill = _get_shape_fill(shape)
+    if fill:
+        sh_data.fill_color = fill
+
+
 def _shape_role(shape) -> str:
     """Determine if a shape is a title, subtitle, or body."""
     try:
@@ -173,7 +311,7 @@ def extract_slides(data: bytes) -> PptxSlideExtract:
     scale = min(MAX_SLIDE_WIDTH_PX / (slide_width * EMU_TO_PX), 1.0)
 
     slides: list[SlideData] = []
-    image_index = 0
+    total_images = 0
 
     for s_idx, slide in enumerate(prs.slides):
         bg = _get_slide_bg(slide)
@@ -185,99 +323,18 @@ def extract_slides(data: bytes) -> PptxSlideExtract:
             height_px=round(slide_height * EMU_TO_PX * scale, 1),
             bg_color=bg,
         )
-
-        for sh_idx, shape in enumerate(slide.shapes):
-            sh_data = SlideShapeData(
-                shape_idx=sh_idx,
-                shape_type="other",
-                left=round(shape.left * EMU_TO_PX * scale, 1),
-                top=round(shape.top * EMU_TO_PX * scale, 1),
-                width=round(shape.width * EMU_TO_PX * scale, 1),
-                height=round(shape.height * EMU_TO_PX * scale, 1),
-            )
-
-            if hasattr(shape, "image") and shape.image:
-                sh_data.shape_type = "picture"
-                sh_data.has_image = True
-                sh_data.image_index = image_index
-                image_index += 1
-                sd.shapes.append(sh_data)
-                continue
-
-            if shape.has_table:
-                sh_data.shape_type = "table"
-                sh_data.table_rows = [
-                    [cell.text for cell in row.cells]
-                    for row in shape.table.rows
-                ]
-                sd.shapes.append(sh_data)
-                continue
-
-            if not shape.has_text_frame:
-                sd.shapes.append(sh_data)
-                continue
-
-            sh_data.shape_type = "text"
-            role = _shape_role(shape)
-            sh_data.is_title = (role == "title")
-            tf = shape.text_frame
-            paragraphs: list[dict[str, Any]] = []
-            all_text: list[str] = []
-
-            for para in tf.paragraphs:
-                para_runs: list[dict[str, Any]] = []
-                para_text_parts: list[str] = []
-
-                for run in para.runs:
-                    font_info = _get_effective_font(run, role == "title")
-                    run_data: dict[str, Any] = {"text": run.text, **font_info}
-                    para_runs.append(run_data)
-                    para_text_parts.append(run.text)
-
-                para_text = "".join(para_text_parts)
-                if para_text.strip():
-                    all_text.append(para_text)
-
-                paragraphs.append({
-                    "text": para_text,
-                    "runs": para_runs,
-                    "alignment": _get_alignment(para),
-                    "level": para.level if para.level else 0,
-                })
-
-            sh_data.paragraphs = paragraphs
-            sh_data.text = "\n".join(all_text)
-
-            # Shape-level font from first run of first non-empty paragraph
-            for para in paragraphs:
-                if para["runs"]:
-                    first = para["runs"][0]
-                    sh_data.font_size = first.get("font_size")
-                    sh_data.font_name = first.get("font_name")
-                    sh_data.font_bold = first.get("bold", False)
-                    sh_data.font_italic = first.get("italic", False)
-                    sh_data.font_color = first.get("color")
-                    sh_data.alignment = para["alignment"]
-                    break
-
-            # If no runs had text, still use defaults
-            if sh_data.font_size is None:
-                sh_data.font_size = 28 if role == "title" else 18
-            if role == "title" and not sh_data.font_bold:
-                sh_data.font_bold = True
-
-            fill = _get_shape_fill(shape)
-            if fill:
-                sh_data.fill_color = fill
-
-            sd.shapes.append(sh_data)
+        slide_image_idx, slide_shapes = _count_images_recursive(
+            slide.shapes, 0, [], scale
+        )
+        total_images += slide_image_idx
+        sd.shapes = slide_shapes
         slides.append(sd)
 
-    return PptxSlideExtract(slides=slides, image_count=image_index)
+    return PptxSlideExtract(slides=slides, image_count=total_images)
 
 
 def extract_slide_image(data: bytes, slide_index: int, image_index: int) -> tuple[bytes, str] | None:
-    """Extract a specific embedded image from a PPTX file."""
+    """Extract a specific embedded image from a PPTX file (per-slide index)."""
     from pptx import Presentation
 
     prs = Presentation(io.BytesIO(data))
@@ -285,14 +342,22 @@ def extract_slide_image(data: bytes, slide_index: int, image_index: int) -> tupl
         return None
 
     slide = prs.slides[slide_index]
-    current_img = 0
 
-    for shape in slide.shapes:
-        if hasattr(shape, "image") and shape.image:
-            if current_img == image_index:
-                img = shape.image
-                content_type = img.content_type or "image/png"
-                return img.blob, content_type
-            current_img += 1
+    def _find_in_shapes(shapes, target_idx: int, counter: list[int]):
+        for shape in shapes:
+            # Check group shapes recursively
+            if _is_group(shape):
+                result = _find_in_shapes(shape.shapes, target_idx, counter)
+                if result is not None:
+                    return result
+                continue
 
-    return None
+            img = _extract_image(shape)
+            if img is not None:
+                if counter[0] == target_idx:
+                    return img
+                counter[0] += 1
+        return None
+
+    result = _find_in_shapes(slide.shapes, image_index, [0])
+    return result

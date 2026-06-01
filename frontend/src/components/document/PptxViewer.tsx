@@ -12,36 +12,56 @@ function ShapeImage({ docId, slideIdx, imageIdx, maxW, maxH }: {
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    slideApi.getSlideImage(docId, slideIdx, imageIdx)
-      .then(({ data }) => {
+    let objectUrl: string | null = null;
+
+    const load = async () => {
+      try {
+        const { data } = await slideApi.getSlideImage(docId, slideIdx, imageIdx);
         if (!cancelled) {
-          setUrl(URL.createObjectURL(data as Blob));
+          objectUrl = URL.createObjectURL(data as Blob);
+          setUrl(objectUrl);
+          setError(false);
         }
-      })
-      .catch(() => { if (!cancelled) setError(true); });
+      } catch {
+        if (!cancelled) {
+          // Retry once after 500ms
+          if (retryCount < 1) {
+            setTimeout(() => { if (!cancelled) setRetryCount(c => c + 1); }, 500);
+          } else {
+            setError(true);
+          }
+        }
+      }
+    };
+
+    load();
+
     return () => {
       cancelled = true;
-      if (url) URL.revokeObjectURL(url);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [docId, slideIdx, imageIdx]);
+  }, [docId, slideIdx, imageIdx, retryCount]);
 
   if (error) {
     return (
-      <div className="flex items-center justify-center bg-slate-100 text-slate-400 text-xs"
+      <div className="flex items-center justify-center bg-slate-100/50 text-slate-400 text-xs border border-dashed border-slate-300 rounded"
         style={{ width: maxW, height: maxH }}>
-        [Image]
+        <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.41a2.25 2.25 0 013.182 0l2.909 2.91m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+        </svg>
       </div>
     );
   }
 
   if (!url) {
     return (
-      <div className="flex items-center justify-center bg-slate-100 animate-pulse"
+      <div className="flex items-center justify-center bg-slate-100/50"
         style={{ width: maxW, height: maxH }}>
-        <div className="w-8 h-8 bg-slate-200 rounded" />
+        <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -50,7 +70,8 @@ function ShapeImage({ docId, slideIdx, imageIdx, maxW, maxH }: {
     <img
       src={url}
       alt="slide"
-      style={{ maxWidth: maxW, maxHeight: maxH, objectFit: 'contain' }}
+      className="w-full h-full object-contain"
+      draggable={false}
     />
   );
 }
