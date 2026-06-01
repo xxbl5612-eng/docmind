@@ -36,6 +36,9 @@ export default function Navbar() {
                 <Link to="/dashboard" className="text-sm text-surface-600 hover:text-surface-900 transition-colors">
                   {t('nav.dashboard')}
                 </Link>
+                <Link to="/github/import" className="text-sm text-surface-600 hover:text-surface-900 transition-colors">
+                  {t('nav.github_import')}
+                </Link>
                 {user?.is_superuser && (
                   <Link to="/admin" className="text-sm text-surface-600 hover:text-surface-900 transition-colors">
                     {t('nav.admin')}
@@ -94,6 +97,7 @@ export default function Navbar() {
             {isAuthenticated ? (
               <>
                 <Link to="/dashboard" className="block px-3 py-2 text-sm rounded-lg hover:bg-surface-50" onClick={() => setMenuOpen(false)}>{t('nav.dashboard')}</Link>
+                <Link to="/github/import" className="block px-3 py-2 text-sm rounded-lg hover:bg-surface-50" onClick={() => setMenuOpen(false)}>{t('nav.github_import')}</Link>
                 {user?.is_superuser && (
                   <Link to="/admin" className="block px-3 py-2 text-sm rounded-lg hover:bg-surface-50" onClick={() => setMenuOpen(false)}>{t('nav.admin')}</Link>
                 )}

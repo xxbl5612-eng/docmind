@@ -1,6 +1,7 @@
 {
   "nav": {
     "dashboard": "Dashboard",
+    "github_import": "GitHub Import",
     "admin": "Admin",
     "settings": "Settings",
     "signIn": "Sign In",
@@ -85,6 +86,17 @@
     "create_button": "Create Account",
     "have_account": "Already have an account?",
     "sign_in_link": "Sign in",
+    "or_continue_with": "or continue with",
+    "sign_in_with_github": "Sign in with GitHub",
+    "sign_up_with_github": "Sign up with GitHub",
+    "link_github": "Link GitHub Account",
+    "unlink_github": "Unlink",
+    "github_linked": "GitHub account linked",
+    "github_unlinked": "GitHub account unlinked",
+    "github_link_failed": "Failed to link GitHub account",
+    "github_login_failed": "GitHub login failed",
+    "oauth_callback_processing": "Completing sign-in...",
+    "oauth_callback_error": "Authentication failed. Please try again.",
     "logged_in": "Signed in successfully",
     "account_created": "Account created!",
     "login_failed": "Login failed",
@@ -108,7 +120,8 @@
     "upload_failed": "Upload failed",
     "deleted": "Document deleted",
     "delete_confirm": "Delete this document?",
-    "no_limit": "Unlimited"
+    "no_limit": "Unlimited",
+    "import_from_github": "Import from GitHub"
   },
   "editor": {
     "ai_tools": "AI Tools",
@@ -228,6 +241,9 @@
     "plan": "Plan",
     "current_plan": "Current plan",
     "danger_zone": "Danger Zone",
+    "connected_accounts": "Connected Accounts",
+    "linked_since": "Linked since",
+    "no_connected_accounts": "No connected accounts",
     "sign_out": "Sign Out",
     "sign_out_desc": "Sign out of your account.",
     "upgraded": "Upgraded to",
@@ -257,5 +273,20 @@
     "white_collar": "White-Collar",
     "professional": "Professional",
     "enterprise": "Enterprise"
+  },
+  "github": {
+    "title": "Import from GitHub",
+    "subtitle": "Browse your GitHub repositories and import documents",
+    "search_repos": "Search repositories...",
+    "file_preview": "File Preview",
+    "import": "Import",
+    "importing": "Importing...",
+    "import_success": "File imported successfully",
+    "import_failed": "Failed to import file",
+    "no_repos": "No repositories found",
+    "connect_github_first": "Connect your GitHub account first",
+    "connect_github_first_desc": "Link your GitHub account in Settings to browse and import files from your repositories.",
+    "go_to_settings": "Go to Settings",
+    "back_to_repos": "Back to Repos"
   }
 }

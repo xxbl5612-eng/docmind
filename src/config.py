@@ -74,6 +74,12 @@ class Settings(BaseSettings):
     l1_cache_max_entries: int = 1000
     l1_cache_max_size_mb: int = 256
 
+    # ── GitHub OAuth ──
+    github_oauth_client_id: str = ""
+    github_oauth_client_secret: SecretStr = SecretStr("")
+    github_oauth_redirect_uri: str = "http://localhost:5173/auth/github/callback"
+    github_oauth_token_encryption_key: SecretStr = SecretStr("change-me-fernet-key-32-bytes-b64")
+
     # ── Collaboration ──
     collab_snapshot_edits: int = 50
     collab_snapshot_idle_seconds: int = 5
@@ -89,6 +95,14 @@ class Settings(BaseSettings):
     @property
     def app_secret_key_value(self) -> str:
         return self.app_secret_key.get_secret_value()
+
+    @property
+    def github_oauth_client_secret_value(self) -> str:
+        return self.github_oauth_client_secret.get_secret_value()
+
+    @property
+    def github_oauth_token_encryption_key_value(self) -> str:
+        return self.github_oauth_token_encryption_key.get_secret_value()
 
 
 settings = Settings()

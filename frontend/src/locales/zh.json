@@ -1,6 +1,7 @@
 {
   "nav": {
     "dashboard": "工作台",
+    "github_import": "GitHub 导入",
     "admin": "管理后台",
     "settings": "设置",
     "signIn": "登录",
@@ -85,6 +86,17 @@
     "create_button": "创建账户",
     "have_account": "已有账户？",
     "sign_in_link": "去登录",
+    "or_continue_with": "或使用以下方式",
+    "sign_in_with_github": "使用 GitHub 登录",
+    "sign_up_with_github": "使用 GitHub 注册",
+    "link_github": "关联 GitHub 账户",
+    "unlink_github": "取消关联",
+    "github_linked": "GitHub 账户已关联",
+    "github_unlinked": "GitHub 账户已取消关联",
+    "github_link_failed": "关联 GitHub 账户失败",
+    "github_login_failed": "GitHub 登录失败",
+    "oauth_callback_processing": "正在完成登录...",
+    "oauth_callback_error": "认证失败，请重试。",
     "logged_in": "登录成功",
     "account_created": "账户创建成功！",
     "login_failed": "登录失败",
@@ -108,7 +120,8 @@
     "upload_failed": "上传失败",
     "deleted": "文档已删除",
     "delete_confirm": "确定删除此文档吗？",
-    "no_limit": "无限制"
+    "no_limit": "无限制",
+    "import_from_github": "从 GitHub 导入"
   },
   "editor": {
     "ai_tools": "AI 工具",
@@ -228,6 +241,9 @@
     "plan": "套餐方案",
     "current_plan": "当前套餐",
     "danger_zone": "危险操作",
+    "connected_accounts": "已关联账户",
+    "linked_since": "关联于",
+    "no_connected_accounts": "暂无关联账户",
     "sign_out": "退出登录",
     "sign_out_desc": "退出您的账户。",
     "upgraded": "已升级至",
@@ -257,5 +273,20 @@
     "white_collar": "白领版",
     "professional": "专业版",
     "enterprise": "企业版"
+  },
+  "github": {
+    "title": "从 GitHub 导入",
+    "subtitle": "浏览您的 GitHub 仓库并导入文档",
+    "search_repos": "搜索仓库...",
+    "file_preview": "文件预览",
+    "import": "导入",
+    "importing": "正在导入...",
+    "import_success": "文件导入成功",
+    "import_failed": "导入文件失败",
+    "no_repos": "未找到仓库",
+    "connect_github_first": "请先关联 GitHub 账户",
+    "connect_github_first_desc": "在设置中关联您的 GitHub 账户后，即可浏览和导入仓库中的文件。",
+    "go_to_settings": "前往设置",
+    "back_to_repos": "返回仓库列表"
   }
 }

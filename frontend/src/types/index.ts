@@ -217,3 +217,36 @@ export interface QARequest {
   question: string;
   context_chunks?: number;
 }
+
+// GitHub OAuth & Import
+export interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string | null;
+  private: boolean;
+  html_url: string;
+  default_branch: string;
+}
+
+export interface GitHubContent {
+  name: string;
+  path: string;
+  type: 'file' | 'dir';
+  sha: string;
+  size: number;
+  html_url: string;
+}
+
+export interface OAuthAccount {
+  provider: string;
+  provider_login: string | null;
+  provider_email: string | null;
+  linked_at: string;
+}
+
+export interface GitHubRateLimit {
+  remaining: number;
+  limit: number;
+  reset: number;
+}

@@ -10,6 +10,7 @@ from src.models.collaboration import (
     AIProcessingJob,
 )
 from src.models.tier import TierDefinition, EnterpriseAPIKey, CacheInvalidationKey
+from src.models.oauth import OAuthAccount
 
 __all__ = [
     "Base",
@@ -27,4 +28,5 @@ __all__ = [
     "TierDefinition",
     "EnterpriseAPIKey",
     "CacheInvalidationKey",
+    "OAuthAccount",
 ]

@@ -12,6 +12,8 @@ import VersionHistory from '@/pages/VersionHistory';
 import Collaboration from '@/pages/Collaboration';
 import AdminDashboard from '@/pages/AdminDashboard';
 import Settings from '@/pages/Settings';
+import AuthCallback from '@/pages/AuthCallback';
+import GitHubImport from '@/pages/GitHubImport';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,6 +50,8 @@ function AppRoutes() {
         <Route path="/documents/:id/collaboration" element={<ProtectedRoute><Collaboration /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/auth/github/callback" element={<AuthCallback />} />
+        <Route path="/github/import" element={<ProtectedRoute><GitHubImport /></ProtectedRoute>} />
       </Route>
     </Routes>
   );

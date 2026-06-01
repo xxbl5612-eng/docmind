@@ -166,6 +166,28 @@ export const adminApi = {
   stats: () => api.get('/admin/stats'),
 };
 
+// GitHub OAuth & Import
+export const githubApi = {
+  getAuthorizationUrl: () => api.get('/auth/github/authorize'),
+  callback: (code: string, state: string) =>
+    api.post('/auth/github/callback', { code, state }),
+  link: (code: string, state: string) =>
+    api.post('/auth/github/link', { code, state }),
+  unlink: () => api.delete('/auth/github/unlink'),
+  getAccounts: () => api.get('/auth/oauth-accounts'),
+  listRepos: (params?: { search?: string; page?: number; page_size?: number }) =>
+    api.get('/github/repos', { params }),
+  getContents: (owner: string, repo: string, path?: string) =>
+    api.get(`/github/repos/${owner}/${repo}/contents`, { params: { path } }),
+  getFile: (owner: string, repo: string, path: string) =>
+    api.get(`/github/repos/${owner}/${repo}/file`, { params: { path } }),
+  getReadme: (owner: string, repo: string) =>
+    api.get(`/github/repos/${owner}/${repo}/readme`),
+  importFile: (repoFullName: string, filePath: string, folder?: string) =>
+    api.post('/github/import', { repo_full_name: repoFullName, file_path: filePath, folder }),
+  rateLimit: () => api.get('/github/rate-limit'),
+};
+
 // Health
 export const healthApi = {
   check: () => api.get('/health'),

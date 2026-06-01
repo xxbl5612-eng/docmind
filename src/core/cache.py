@@ -29,6 +29,9 @@ KEY_AI_PROMPT = "docmind:ai:prompt:{task_type}:{language}"
 KEY_API_KEY = "docmind:apikey:{key_hash}"
 KEY_TASK_STATUS = "docmind:task:{task_id}"
 KEY_CACHE_VERSION = "docmind:cache_version:{prefix}"
+KEY_GITHUB_REPOS = "docmind:github:{user_id}:repos"
+KEY_GITHUB_CONTENTS = "docmind:github:{user_id}:contents:{owner}:{repo}:{path}"
+KEY_GITHUB_RATE_LIMIT = "docmind:github:{user_id}:rate_limit"
 
 # ── TTL definitions (seconds) ──
 TTL_USER_PROFILE = 900        # 15 min
@@ -41,6 +44,9 @@ TTL_TIER = 3600               # 1 hour
 TTL_AI_PROMPT = 86400         # 24 hours
 TTL_API_KEY = 300             # 5 min
 TTL_TASK_STATUS = 10          # 10 sec
+TTL_GITHUB_REPOS = 300        # 5 min
+TTL_GITHUB_CONTENTS = 120     # 2 min
+TTL_GITHUB_RATE_LIMIT = 60    # 1 min
 
 
 class CacheManager:
