@@ -8,6 +8,7 @@ import Badge from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
 import { formatBytes } from '@/lib/utils';
 import PptxViewer from '@/components/document/PptxViewer';
+import ImageViewer from '@/components/document/ImageViewer';
 import type { ApiResponse, Document, DocumentContent, AsyncTaskResponse, TaskStatus } from '@/types';
 
 type AiTool = 'proofread' | 'rewrite' | 'summarize' | 'extract' | 'convert' | 'qa';
@@ -103,7 +104,7 @@ export default function DocumentEditor() {
   const [extractType, setExtractType] = useState('entities');
   const [convertFormat, setConvertFormat] = useState('docx');
   const [question, setQuestion] = useState('');
-  const [viewMode, setViewMode] = useState<'slide' | 'text'>('slide');
+  const [viewMode, setViewMode] = useState<'slide' | 'text' | 'image'>('slide');
 
   const { data: doc } = useQuery({
     queryKey: ['document', id],
@@ -287,6 +288,37 @@ export default function DocumentEditor() {
                 {viewMode === 'slide' ? (
                   <div className="flex-1 overflow-hidden">
                     <PptxViewer docId={id} />
+                  </div>
+                ) : (
+                  <div className="flex-1 p-6 overflow-y-auto">
+                    <textarea
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      className="w-full h-full min-h-[500px] p-4 rounded-lg border border-surface-200 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      placeholder="Document content will appear here..."
+                    />
+                  </div>
+                )}
+              </div>
+            ) : doc?.input_format === 'png' || doc?.input_format === 'jpg' || doc?.input_format === 'jpeg' ? (
+              <div className="flex flex-col h-full">
+                <div className="flex items-center gap-2 px-6 py-2 border-b border-surface-200 bg-surface-50">
+                  <button
+                    onClick={() => setViewMode('image')}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${viewMode === 'image' ? 'bg-primary-600 text-white' : 'text-surface-600 hover:bg-surface-200'}`}
+                  >
+                    {t('editor.image_view')}
+                  </button>
+                  <button
+                    onClick={() => setViewMode('text')}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${viewMode === 'text' ? 'bg-primary-600 text-white' : 'text-surface-600 hover:bg-surface-200'}`}
+                  >
+                    {t('editor.text_view')}
+                  </button>
+                </div>
+                {viewMode === 'image' ? (
+                  <div className="flex-1 overflow-hidden">
+                    <ImageViewer docId={id} />
                   </div>
                 ) : (
                   <div className="flex-1 p-6 overflow-y-auto">

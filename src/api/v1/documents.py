@@ -368,3 +368,23 @@ async def get_slide_image(
     image_bytes, content_type = result
     from fastapi.responses import Response
     return Response(content=image_bytes, media_type=content_type)
+
+
+@router.get("/{doc_id}/original")
+async def get_original_file(
+    doc = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    """Serve the original uploaded file for direct viewing/download."""
+    svc = DocumentService(db, cache)
+    original_bytes = svc.get_original_file(doc)
+    if original_bytes is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    from fastapi.responses import Response
+    return Response(
+        content=original_bytes,
+        media_type=doc.mime_type or "application/octet-stream",
+    )

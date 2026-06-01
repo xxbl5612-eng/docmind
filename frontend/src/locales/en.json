@@ -177,7 +177,9 @@
     "next": "Next",
     "no_slides": "No slides found",
     "slide_view": "Slide View",
-    "text_view": "Text View"
+    "text_view": "Text View",
+    "image_view": "Image View",
+    "reset_zoom": "Reset"
   },
   "versions": {
     "title": "Version History",

@@ -177,7 +177,9 @@
     "next": "下一页",
     "no_slides": "未找到幻灯片",
     "slide_view": "幻灯片视图",
-    "text_view": "文本视图"
+    "text_view": "文本视图",
+    "image_view": "图片视图",
+    "reset_zoom": "重置"
   },
   "versions": {
     "title": "版本历史",
