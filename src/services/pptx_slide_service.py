@@ -141,30 +141,63 @@ def _get_shape_fill_detail(shape) -> dict:
 
 
 def _get_slide_bg_detail(slide) -> dict:
-    """Extract slide background including gradient."""
+    """Extract slide background including gradient, walking up layout/master inheritance."""
     result = {"bg_color": None, "bg_fill_type": None, "bg_gradient_stops": [], "bg_gradient_angle": None}
-    try:
-        bg = slide.background
-        if bg and bg.fill:
-            ft_val = bg.fill.type if hasattr(bg.fill, "type") else None
+
+    def _read_bg_fill(bg) -> bool:
+        """Try to read fill from a background object. Returns True if found."""
+        if bg is None:
+            return False
+        try:
+            fill = bg.fill
+            if fill is None:
+                return False
+            ft_val = fill.type if hasattr(fill, "type") else None
             ft = ft_val if isinstance(ft_val, str) else str(ft_val) if ft_val is not None else ""
-            if "SOLID" in ft or (not ft and bg.fill.fore_color):
+            if "SOLID" in ft or (not ft and fill.fore_color):
                 result["bg_fill_type"] = "solid"
-                fc = _resolve_color(bg.fill.fore_color)
+                fc = _resolve_color(fill.fore_color)
                 if fc:
                     result["bg_color"] = f"#{fc}"
+                return True
             elif ft and ("GRADIENT" in ft.upper() or "2" in ft):
                 result["bg_fill_type"] = "gradient"
                 try:
-                    for gs in bg.fill.gradient_stops:
+                    for gs in fill.gradient_stops:
                         color = _resolve_color(gs.color)
                         if color:
                             result["bg_gradient_stops"].append({"color": f"#{color}", "position": round(gs.position, 2)})
-                    result["bg_gradient_angle"] = round(bg.fill.gradient_angle or 0, 1)
+                    result["bg_gradient_angle"] = round(fill.gradient_angle or 0, 1)
                 except Exception:
                     pass
+                return True
+        except Exception:
+            pass
+        return False
+
+    # 1. Check slide's own background
+    try:
+        if _read_bg_fill(slide.background):
+            return result
     except Exception:
         pass
+
+    # 2. Check slide layout's background
+    try:
+        layout = slide.slide_layout
+        if layout and _read_bg_fill(layout.background):
+            return result
+    except Exception:
+        pass
+
+    # 3. Check slide master's background
+    try:
+        master = slide.slide_layout.slide_master if hasattr(slide, "slide_layout") else None
+        if master and _read_bg_fill(master.background):
+            return result
+    except Exception:
+        pass
+
     return result
 
 
