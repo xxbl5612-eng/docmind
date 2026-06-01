@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_cache, get_db
+from src.api.deps import get_cache, get_db, rate_limit
 from src.core.cache import CacheManager
 from src.schemas.auth import (
     LoginRequest,
@@ -24,6 +24,7 @@ async def register(
     body: RegisterRequest,
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
+    _: None = Depends(rate_limit(max_requests=5, window_seconds=60)),
 ):
     svc = AuthService(db, cache)
     try:
@@ -39,6 +40,7 @@ async def login(
     body: LoginRequest,
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
+    _: None = Depends(rate_limit(max_requests=10, window_seconds=60)),
 ):
     svc = AuthService(db, cache)
     try:

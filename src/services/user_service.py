@@ -20,9 +20,7 @@ class UserService:
     async def get_user(self, user_id: uuid.UUID) -> User | None:
         cached = await self.cache.get(KEY_USER_PROFILE.format(user_id=str(user_id)))
         if cached:
-            stmt = select(User).where(User.id == user_id)
-            result = await self.db.execute(stmt)
-            return result.scalar_one_or_none()
+            return _deserialize(cached)
 
         stmt = select(User).where(User.id == user_id)
         result = await self.db.execute(stmt)
@@ -110,14 +108,17 @@ class UserService:
         cache_key = f"docmind:tier:{tier_name}"
         cached = await self.cache.get(cache_key)
         if cached:
-            return None  # Can't deserialize to ORM model
+            return _tier_from_cache(cached)
 
         stmt = select(TierDefinition).where(
             TierDefinition.name == tier_name,
             TierDefinition.is_active.is_(True),
         )
         result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        tier = result.scalar_one_or_none()
+        if tier:
+            await self.cache.set(cache_key, _serialize_tier(tier), ttl=3600)
+        return tier
 
     async def list_users(self, page: int = 1, page_size: int = 20) -> tuple[list[User], int]:
         stmt = select(User).where(User.is_active.is_(True))
@@ -133,14 +134,67 @@ class UserService:
 
 def _serialize(user: User) -> dict:
     return {
+        "type": "user",
         "id": str(user.id),
         "email": user.email,
         "display_name": user.display_name,
         "avatar_url": user.avatar_url,
         "tier": user.tier,
         "tier_expires_at": user.tier_expires_at.isoformat() if user.tier_expires_at else None,
+        "is_active": user.is_active,
         "is_verified": user.is_verified,
         "is_superuser": user.is_superuser,
         "preferences": user.preferences,
-        "created_at": user.created_at.isoformat(),
+        "created_at": user.created_at.isoformat() if user.created_at else None,
     }
+
+
+def _deserialize(data: dict) -> User:
+    return User(
+        id=data["id"],
+        email=data["email"],
+        display_name=data["display_name"],
+        avatar_url=data.get("avatar_url"),
+        tier=data.get("tier", "novice"),
+        is_active=data.get("is_active", True),
+        is_verified=data.get("is_verified", False),
+        is_superuser=data.get("is_superuser", False),
+        preferences=data.get("preferences", {}),
+    )
+
+
+def _serialize_tier(tier: TierDefinition) -> dict:
+    return {
+        "type": "tier",
+        "name": tier.name,
+        "display_name": tier.display_name,
+        "max_documents_per_month": tier.max_documents_per_month,
+        "max_ai_calls_per_month": tier.max_ai_calls_per_month,
+        "max_storage_bytes": tier.max_storage_bytes,
+        "max_document_size_bytes": tier.max_document_size_bytes,
+        "max_document_chars": tier.max_document_chars,
+        "max_file_types": tier.max_file_types,
+        "supports_async_processing": tier.supports_async_processing,
+        "supports_collaboration": tier.supports_collaboration,
+        "supports_api_access": tier.supports_api_access,
+        "max_collaborators_per_doc": tier.max_collaborators_per_doc,
+    }
+
+
+def _tier_from_cache(data: dict) -> TierDefinition | None:
+    if data.get("type") != "tier":
+        return None
+    return TierDefinition(
+        name=data["name"],
+        display_name=data["display_name"],
+        max_documents_per_month=data["max_documents_per_month"],
+        max_ai_calls_per_month=data["max_ai_calls_per_month"],
+        max_storage_bytes=data["max_storage_bytes"],
+        max_document_size_bytes=data["max_document_size_bytes"],
+        max_document_chars=data.get("max_document_chars"),
+        max_file_types=data.get("max_file_types", []),
+        supports_async_processing=data.get("supports_async_processing", False),
+        supports_collaboration=data.get("supports_collaboration", False),
+        supports_api_access=data.get("supports_api_access", False),
+        max_collaborators_per_doc=data.get("max_collaborators_per_doc"),
+    )

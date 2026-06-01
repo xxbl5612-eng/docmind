@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.deps import get_current_active_user, get_db
 from src.models.user import User
 from src.schemas.common import APIResponse
-from src.utils.file_utils import SUPPORTED_OUTPUT_FORMATS
+from src.utils.file_utils import SUPPORTED_INPUT_MIMES, SUPPORTED_OUTPUT_FORMATS
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -38,6 +38,6 @@ async def system_stats(
             "total_users": user_count,
             "total_documents": doc_count,
             "total_characters": total_chars,
-            "supported_formats": {"input": list(SUPPORTED_OUTPUT_FORMATS), "output": SUPPORTED_OUTPUT_FORMATS},
+            "supported_formats": {"input": list(SUPPORTED_INPUT_MIMES.keys()), "output": SUPPORTED_OUTPUT_FORMATS},
         },
     )

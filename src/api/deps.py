@@ -165,3 +165,34 @@ def require_quota(resource: str):
         return current_user
 
     return dependency
+
+
+# ── Rate limiter for public endpoints ──
+
+_rate_limiters: dict[str, dict] = {}  # keyed by client IP
+
+
+def rate_limit(max_requests: int = 5, window_seconds: int = 60):
+    """Dependency factory: rate limit based on client IP.
+    Default: 5 requests per 60s for auth endpoints.
+    Skipped in dev fallback / test mode.
+    """
+    from src.utils.rate_limit import TokenBucketRateLimiter
+
+    async def dependency(request: Request) -> None:
+        if settings.use_dev_fallback:
+            return  # skip rate limiting in test/dev mode
+
+        key = request.client.host if request.client else "unknown"
+        if key not in _rate_limiters:
+            _rate_limiters[key] = {
+                "limiter": TokenBucketRateLimiter(rate=max_requests / window_seconds, burst=max_requests),
+            }
+        limiter = _rate_limiters[key]["limiter"]
+        if not await limiter.try_acquire(1):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many requests. Please try again later.",
+            )
+
+    return dependency
