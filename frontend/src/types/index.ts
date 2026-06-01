@@ -250,3 +250,56 @@ export interface GitHubRateLimit {
   limit: number;
   reset: number;
 }
+
+// PPTX Slide types
+export interface SlideParagraphRun {
+  text: string;
+  font_size: number | null;
+  bold: boolean;
+  italic: boolean;
+  color: string | null;
+  font_name: string | null;
+}
+
+export interface SlideParagraph {
+  text: string;
+  runs: SlideParagraphRun[];
+  alignment: string;
+  level: number;
+}
+
+export interface SlideShape {
+  shape_idx: number;
+  shape_type: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  text: string | null;
+  font_size: number | null;
+  font_name: string | null;
+  font_bold: boolean;
+  font_italic: boolean;
+  font_color: string | null;
+  fill_color: string | null;
+  alignment: string | null;
+  has_image: boolean;
+  image_index: number | null;
+  table_rows: string[][] | null;
+  paragraphs: SlideParagraph[];
+}
+
+export interface SlideData {
+  slide_index: number;
+  width_emu: number;
+  height_emu: number;
+  width_px: number;
+  height_px: number;
+  shapes: SlideShape[];
+}
+
+export interface SlidesResponse {
+  slides: SlideData[];
+  image_count: number;
+  total_slides: number;
+}

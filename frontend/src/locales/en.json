@@ -172,7 +172,12 @@
     "summarize_length_options": { "short": "Short", "medium": "Medium", "long": "Long" },
     "format_options": { "paragraph": "Paragraph", "bullets": "Bullets", "structured": "Structured" },
     "extract_type_options": { "entities": "Entities", "tables": "Tables", "key_facts": "Key Facts", "custom": "Custom" },
-    "proofread_check_options": { "grammar": "Grammar", "spelling": "Spelling", "style": "Style" }
+    "proofread_check_options": { "grammar": "Grammar", "spelling": "Spelling", "style": "Style" },
+    "prev": "Prev",
+    "next": "Next",
+    "no_slides": "No slides found",
+    "slide_view": "Slide View",
+    "text_view": "Text View"
   },
   "versions": {
     "title": "Version History",

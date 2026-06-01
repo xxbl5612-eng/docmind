@@ -15,6 +15,7 @@ from src.core.cache import (
     CacheManager,
 )
 from src.core.storage import (
+    download_file,
     download_text,
     file_exists,
     generate_object_path,
@@ -234,6 +235,13 @@ class DocumentService:
             return None
 
         return get_presigned_url(export_path, expires=3600)
+
+    def get_original_file(self, doc: Document) -> bytes | None:
+        """Get original uploaded file bytes."""
+        try:
+            return download_file(doc.storage_path)
+        except Exception:
+            return None
 
     async def _get_doc(self, doc_id: uuid.UUID) -> Document | None:
         stmt = select(Document).where(Document.id == doc_id)

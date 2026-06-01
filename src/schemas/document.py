@@ -94,3 +94,58 @@ class ExportStatusResponse(BaseModel):
     status: str
     progress_pct: int
     download_url: str | None = None
+
+
+# ── PPTX Slide schemas ──
+
+
+class SlideParagraphRun(BaseModel):
+    text: str
+    font_size: float | None = None
+    bold: bool = False
+    italic: bool = False
+    color: str | None = None
+    font_name: str | None = None
+
+
+class SlideParagraph(BaseModel):
+    text: str
+    runs: list[SlideParagraphRun] = []
+    alignment: str = "left"
+    level: int = 0
+
+
+class SlideShapeData(BaseModel):
+    shape_idx: int
+    shape_type: str
+    left: float
+    top: float
+    width: float
+    height: float
+    text: str | None = None
+    font_size: float | None = None
+    font_name: str | None = None
+    font_bold: bool = False
+    font_italic: bool = False
+    font_color: str | None = None
+    fill_color: str | None = None
+    alignment: str | None = None
+    has_image: bool = False
+    image_index: int | None = None
+    table_rows: list[list[str]] | None = None
+    paragraphs: list[SlideParagraph] = []
+
+
+class SlideData(BaseModel):
+    slide_index: int
+    width_emu: int
+    height_emu: int
+    width_px: float
+    height_px: float
+    shapes: list[SlideShapeData] = []
+
+
+class SlidesResponse(BaseModel):
+    slides: list[SlideData]
+    image_count: int
+    total_slides: int

@@ -28,6 +28,7 @@ from src.schemas.document import (
     DocumentUpdateRequest,
     ExportRequest,
     ExportStatusResponse,
+    SlidesResponse,
 )
 from src.services.document_service import DocumentService
 from src.services.operation_log_service import OperationLogService
@@ -246,3 +247,122 @@ async def export_document(
         ),
         message="Export task started",
     )
+
+
+@router.get("/{doc_id}/slides", response_model=APIResponse[SlidesResponse])
+async def get_slides(
+    doc = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    """Get slide structure for PPTX documents."""
+    if doc.input_format not in ("pptx",):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Slide view is only available for PPTX documents",
+        )
+
+    svc = DocumentService(db, cache)
+    original_bytes = svc.get_original_file(doc)
+    if original_bytes is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Original file not found",
+        )
+
+    from src.services.pptx_slide_service import extract_slides
+    slide_data = extract_slides(original_bytes)
+
+    from src.schemas.document import SlideData, SlideShapeData, SlideParagraph, SlideParagraphRun
+
+    slides_resp: list[SlideData] = []
+    for sd in slide_data.slides:
+        shapes_resp: list[SlideShapeData] = []
+        for sh in sd.shapes:
+            paragraphs_resp: list[SlideParagraph] = []
+            for p in sh.paragraphs:
+                runs_resp: list[SlideParagraphRun] = []
+                for r in p.get("runs", []):
+                    runs_resp.append(SlideParagraphRun(
+                        text=r.get("text", ""),
+                        font_size=r.get("font_size"),
+                        bold=r.get("bold", False),
+                        italic=r.get("italic", False),
+                        color=r.get("color"),
+                        font_name=r.get("font_name"),
+                    ))
+                paragraphs_resp.append(SlideParagraph(
+                    text=p.get("text", ""),
+                    runs=runs_resp,
+                    alignment=p.get("alignment", "left"),
+                    level=p.get("level", 0),
+                ))
+            shapes_resp.append(SlideShapeData(
+                shape_idx=sh.shape_idx,
+                shape_type=sh.shape_type,
+                left=sh.left,
+                top=sh.top,
+                width=sh.width,
+                height=sh.height,
+                text=sh.text,
+                font_size=sh.font_size,
+                font_name=sh.font_name,
+                font_bold=sh.font_bold,
+                font_italic=sh.font_italic,
+                font_color=sh.font_color,
+                fill_color=sh.fill_color,
+                alignment=sh.alignment,
+                has_image=sh.has_image,
+                image_index=sh.image_index,
+                table_rows=sh.table_rows,
+                paragraphs=paragraphs_resp,
+            ))
+        slides_resp.append(SlideData(
+            slide_index=sd.slide_index,
+            width_emu=sd.width_emu,
+            height_emu=sd.height_emu,
+            width_px=sd.width_px,
+            height_px=sd.height_px,
+            shapes=shapes_resp,
+        ))
+
+    return APIResponse(
+        success=True,
+        data=SlidesResponse(
+            slides=slides_resp,
+            image_count=slide_data.image_count,
+            total_slides=len(slides_resp),
+        ),
+    )
+
+
+@router.get("/{doc_id}/slides/{slide_idx}/images/{image_idx}")
+async def get_slide_image(
+    slide_idx: int,
+    image_idx: int,
+    doc = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    """Serve an embedded image from a PPTX slide."""
+    if doc.input_format not in ("pptx",):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Slide view is only available for PPTX documents",
+        )
+
+    svc = DocumentService(db, cache)
+    original_bytes = svc.get_original_file(doc)
+    if original_bytes is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    from src.services.pptx_slide_service import extract_slide_image
+    result = extract_slide_image(original_bytes, slide_idx, image_idx)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    image_bytes, content_type = result
+    from fastapi.responses import Response
+    return Response(content=image_bytes, media_type=content_type)

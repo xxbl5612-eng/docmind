@@ -125,6 +125,34 @@ def create_app() -> FastAPI:
     async def ready():
         return {"status": "ready", "fallback_mode": settings.use_dev_fallback}
 
+    # Serve frontend static files (must be after API routes)
+    import os as _os
+    frontend_dist = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "frontend", "dist")
+    if _os.path.isdir(frontend_dist):
+        app.mount("/assets", StaticFiles(directory=_os.path.join(frontend_dist, "assets")), name="frontend_assets")
+
+        @app.get("/favicon.svg", include_in_schema=False)
+        async def favicon():
+            from fastapi.responses import FileResponse
+            return FileResponse(_os.path.join(frontend_dist, "favicon.svg"))
+
+        @app.get("/icons.svg", include_in_schema=False)
+        async def icons():
+            from fastapi.responses import FileResponse
+            return FileResponse(_os.path.join(frontend_dist, "icons.svg"))
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def serve_frontend(full_path: str):
+            if full_path.startswith("api/") or full_path.startswith("local-storage/"):
+                from fastapi import HTTPException as _HE
+                raise _HE(status_code=404)
+            from fastapi.responses import FileResponse
+            import os as _os2
+            file_path = _os2.path.join(frontend_dist, full_path)
+            if full_path and _os2.path.isfile(file_path):
+                return FileResponse(file_path)
+            return FileResponse(_os2.path.join(frontend_dist, "index.html"))
+
     return app
 
 

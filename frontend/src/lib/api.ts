@@ -188,6 +188,13 @@ export const githubApi = {
   rateLimit: () => api.get('/github/rate-limit'),
 };
 
+// Slides (PPTX preview)
+export const slideApi = {
+  getSlides: (docId: string) => api.get(`/documents/${docId}/slides`),
+  getSlideImage: (docId: string, slideIdx: number, imageIdx: number) =>
+    api.get(`/documents/${docId}/slides/${slideIdx}/images/${imageIdx}`, { responseType: 'blob' }),
+};
+
 // Health
 export const healthApi = {
   check: () => api.get('/health'),
