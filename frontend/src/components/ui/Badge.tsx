@@ -16,7 +16,7 @@ const variantClasses = {
 
 export default function Badge({ children, variant = 'default', className }: BadgeProps) {
   return (
-    <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', variantClasses[variant], className)}>
+    <span role="status" className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', variantClasses[variant], className)}>
       {children}
     </span>
   );

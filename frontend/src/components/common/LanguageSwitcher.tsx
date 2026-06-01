@@ -13,7 +13,7 @@ export default function LanguageSwitcher() {
     <button
       onClick={toggle}
       className="flex items-center gap-1.5 text-sm text-surface-600 hover:text-surface-900 transition-colors cursor-pointer px-2 py-1 rounded-md hover:bg-surface-100"
-      title={currentLang === 'zh' ? 'Switch to English' : '切换到中文'}
+      aria-label={currentLang === 'zh' ? 'Switch to English' : '切换到中文'}
     >
       <span className="text-base">{currentLang === 'zh' ? '中' : 'EN'}</span>
       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

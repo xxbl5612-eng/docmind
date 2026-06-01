@@ -12,9 +12,10 @@ export function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-export function formatDate(dateStr: string | null): string {
+export function formatDate(dateStr: string | null, locale?: string): string {
   if (!dateStr) return '-';
-  return new Date(dateStr).toLocaleDateString('zh-CN', {
+  const loc = locale || (typeof navigator !== 'undefined' ? navigator.language : 'en-US');
+  return new Date(dateStr).toLocaleDateString(loc, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
