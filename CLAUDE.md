@@ -11,13 +11,18 @@ DocMind — Full-Scenario Intelligent Document Processing Assistant.
 
 ## Quick Start
 
+**Windows 一键启动：** 双击 `start.bat`（自动打开浏览器）
+
 ```bash
-# Dev fallback mode (zero external deps needed — SQLite + local FS)
-cp .env.example .env
-# Edit .env: set USE_DEV_FALLBACK=true
-uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
-cd frontend && npm run dev
+# 或手动启动 — Dev fallback mode (zero external deps needed)
+cp .env.example .env          # 首次：编辑 .env 设置 USE_DEV_FALLBACK=true
+python -m uvicorn src.main:app --host 0.0.0.0 --port 8000
+cd frontend && npm run dev     # 前端: http://localhost:5173
 ```
+
+**停止：** 双击 `stop.bat` 或关闭命令行窗口
+
+**测试账号：** `test@docmind.com` / `test123456`
 
 ## Project Structure
 
