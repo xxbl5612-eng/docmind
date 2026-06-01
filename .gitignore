@@ -34,5 +34,12 @@ Thumbs.db
 # ── Claude ──
 .claude/settings.local.json
 
+# ── Documents ──
+*.docx
+*.doc
+*.pdf
+*.pptx
+*.xlsx
+
 # ── Docker ──
 docker-compose.override.yml
