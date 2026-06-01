@@ -14,6 +14,7 @@ import AdminDashboard from '@/pages/AdminDashboard';
 import Settings from '@/pages/Settings';
 import AuthCallback from '@/pages/AuthCallback';
 import GitHubImport from '@/pages/GitHubImport';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,7 +46,7 @@ function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/documents/:id" element={<ProtectedRoute><DocumentEditor /></ProtectedRoute>} />
+        <Route path="/documents/:id" element={<ProtectedRoute><ErrorBoundary><DocumentEditor /></ErrorBoundary></ProtectedRoute>} />
         <Route path="/documents/:id/versions" element={<ProtectedRoute><VersionHistory /></ProtectedRoute>} />
         <Route path="/documents/:id/collaboration" element={<ProtectedRoute><Collaboration /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />

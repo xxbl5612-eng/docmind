@@ -116,6 +116,7 @@
     "folder_placeholder": "e.g. work/project",
     "empty_title": "No documents yet",
     "empty_desc": "Upload your first document to get started.",
+    "drop_active": "Drop your file here",
     "uploaded": "Document uploaded successfully",
     "upload_failed": "Upload failed",
     "deleted": "Document deleted",

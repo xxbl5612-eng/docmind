@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
+import FileIcon from '@/components/ui/FileIcon';
 import { formatBytes, formatDate } from '@/lib/utils';
 import type { Document, ApiResponse, DocumentListResponse, UsageData } from '@/types';
 
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [folder, setFolder] = useState('');
   const [page, setPage] = useState(1);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const { data: docsData, isLoading } = useQuery({
     queryKey: ['documents', page],
@@ -112,9 +114,10 @@ export default function Dashboard() {
       <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title={t('dashboard.upload_title')}>
         <div className="space-y-4">
           <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-            className="border-2 border-dashed border-surface-300 rounded-xl p-8 text-center hover:border-primary-400 transition-colors cursor-pointer"
+            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={(e) => { setIsDragOver(false); handleDrop(e); }}
+            className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${isDragOver ? 'border-primary-500 bg-primary-50 scale-[1.02] shadow-lg' : 'border-surface-300 hover:border-primary-400'}`}
             onClick={() => document.getElementById('fileInput')?.click()}
           >
             <input
@@ -124,10 +127,10 @@ export default function Dashboard() {
               accept=".pdf,.docx,.txt,.md,.html,.pptx,.xlsx,.csv,.png,.jpg"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMutation.mutate(f); }}
             />
-            <svg className="w-10 h-10 text-surface-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className={`w-10 h-10 mx-auto mb-3 transition-all ${isDragOver ? 'text-primary-500 scale-110' : 'text-surface-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
             </svg>
-            <p className="text-surface-600 font-medium">{t('dashboard.drop_text')}</p>
+            <p className="text-surface-600 font-medium">{isDragOver ? (t('dashboard.drop_active') || 'Drop your file here') : t('dashboard.drop_text')}</p>
             <p className="text-sm text-surface-400 mt-1">{t('dashboard.drop_hint')}</p>
           </div>
           <div>
@@ -163,11 +166,7 @@ export default function Dashboard() {
                 onClick={() => navigate(`/documents/${doc.id}`)}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                    </svg>
-                  </div>
+                  <FileIcon format={doc.input_format} />
                   <button
                     onClick={(e) => { e.stopPropagation(); if (confirm(t('dashboard.delete_confirm'))) deleteMutation.mutate(doc.id); }}
                     className="opacity-0 group-hover:opacity-100 text-surface-400 hover:text-red-500 transition-all cursor-pointer"

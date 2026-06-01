@@ -116,6 +116,7 @@
     "folder_placeholder": "例如：work/project",
     "empty_title": "暂无文档",
     "empty_desc": "上传您的第一份文档开始使用吧。",
+    "drop_active": "释放文件以上传",
     "uploaded": "文档上传成功",
     "upload_failed": "上传失败",
     "deleted": "文档已删除",

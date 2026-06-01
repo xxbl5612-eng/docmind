@@ -251,6 +251,21 @@ export interface GitHubRateLimit {
   reset: number;
 }
 
+// Viewer architecture
+export interface ViewerConfig {
+  formats: string[];
+  component: React.ComponentType<ViewerProps>;
+  defaultView: 'preview' | 'text';
+  label: string;
+  icon: string;
+}
+
+export interface ViewerProps {
+  docId: string;
+  content: string;
+  onContentChange: (content: string) => void;
+}
+
 // PPTX Slide types
 export interface SlideParagraphRun {
   text: string;
