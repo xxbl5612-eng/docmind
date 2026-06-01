@@ -317,6 +317,7 @@ async def get_slides(
                 image_index=sh.image_index,
                 table_rows=sh.table_rows,
                 paragraphs=paragraphs_resp,
+                is_title=sh.is_title,
             ))
         slides_resp.append(SlideData(
             slide_index=sd.slide_index,
@@ -325,6 +326,7 @@ async def get_slides(
             width_px=sd.width_px,
             height_px=sd.height_px,
             shapes=shapes_resp,
+            bg_color=sd.bg_color,
         ))
 
     return APIResponse(

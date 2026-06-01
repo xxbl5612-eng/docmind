@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import base64
 import io
-import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -12,7 +10,7 @@ from typing import Any
 @dataclass
 class SlideShapeData:
     shape_idx: int
-    shape_type: str  # "text", "picture", "table", "group", "chart", "other"
+    shape_type: str  # "text", "picture", "table", "group", "other"
     left: float
     top: float
     width: float
@@ -22,14 +20,14 @@ class SlideShapeData:
     font_name: str | None = None
     font_bold: bool = False
     font_italic: bool = False
-    font_color: str | None = None  # hex
-    fill_color: str | None = None  # hex background
-    alignment: str | None = None  # left, center, right, justify
+    font_color: str | None = None  # #RRGGBB
+    fill_color: str | None = None
+    alignment: str | None = None
     has_image: bool = False
     image_index: int | None = None
     table_rows: list[list[str]] | None = None
-    # Bullet/multiline paragraphs
     paragraphs: list[dict[str, Any]] = field(default_factory=list)
+    is_title: bool = False
 
 
 @dataclass
@@ -40,6 +38,7 @@ class SlideData:
     width_px: float
     height_px: float
     shapes: list[SlideShapeData] = field(default_factory=list)
+    bg_color: str | None = None
 
 
 @dataclass
@@ -48,59 +47,125 @@ class PptxSlideExtract:
     image_count: int
 
 
-# Scale factor: EMU (English Metric Units) to pixels at 96 DPI
-# 1 EMU = 1/914400 inch, 1 inch = 96 pixels → 1 EMU = 96/914400 px
 EMU_TO_PX = 96.0 / 914400.0
-
-# Fallback slide dimensions (standard 16:9)
 FALLBACK_WIDTH_EMU = 12192000
 FALLBACK_HEIGHT_EMU = 6858000
+MAX_SLIDE_WIDTH_PX = 960
 
-MAX_SLIDE_WIDTH_PX = 960  # max rendering width in frontend
+# Default theme colors (approximate Office theme)
+THEME_COLORS: dict[str, str] = {
+    "tx1": "000000", "tx2": "1F497D", "bg1": "FFFFFF", "bg2": "EEECE1",
+    "accent1": "4F81BD", "accent2": "C0504D", "accent3": "9BBB59",
+    "accent4": "8064A2", "accent5": "4BACC6", "accent6": "F79646",
+}
 
 
-def _get_font_color(run) -> str | None:
+def _resolve_color(color_obj) -> str | None:
+    """Resolve a pptx color to hex string, including theme colors."""
     try:
-        from pptx.dml.color import RGBColor
-        color = run.font.color
-        if color and color.rgb:
-            return str(color.rgb)
-        if color and color.theme_color:
-            return f"theme:{color.theme_color}"
+        if color_obj is None:
+            return None
+        if hasattr(color_obj, "rgb") and color_obj.rgb:
+            return str(color_obj.rgb)
+        if hasattr(color_obj, "theme_color") and color_obj.theme_color:
+            tc = str(color_obj.theme_color).lower()
+            return THEME_COLORS.get(tc, "333333")
     except Exception:
         pass
     return None
 
 
-def _get_fill_color(shape) -> str | None:
+def _get_effective_font(run, shape_is_title: bool) -> dict[str, Any]:
+    """Get font properties from a run, with fallback defaults."""
+    font = run.font
+    result: dict[str, Any] = {}
+
+    # Font size with fallback based on role
+    if font.size:
+        result["font_size"] = round(font.size / 12700, 1)
+    else:
+        result["font_size"] = 28 if shape_is_title else 18
+
+    result["bold"] = font.bold if font.bold is not None else shape_is_title
+    result["italic"] = bool(font.italic)
+
+    name = font.name
+    result["font_name"] = name if name else None
+
+    color = _resolve_color(font.color)
+    result["color"] = f"#{color}" if color else None
+
+    return result
+
+
+def _get_shape_fill(shape) -> str | None:
+    """Extract shape fill color."""
     try:
         fill = shape.fill
-        if fill and fill.fore_color and fill.fore_color.rgb:
-            return str(fill.fore_color.rgb)
+        if fill is None:
+            return None
+        ft = str(fill.type) if hasattr(fill, "type") else ""
+        if ft == "SOLID" or not ft:
+            fc = _resolve_color(fill.fore_color)
+            if fc:
+                return f"#{fc}"
     except Exception:
         pass
     return None
 
 
-def _get_alignment(para) -> str | None:
+def _get_slide_bg(slide) -> str | None:
+    """Extract slide background color."""
+    try:
+        bg = slide.background
+        if bg and bg.fill:
+            fc = _resolve_color(bg.fill.fore_color)
+            if fc:
+                return f"#{fc}"
+    except Exception:
+        pass
+    return None
+
+
+def _get_alignment(para) -> str:
     try:
         from pptx.enum.text import PP_ALIGN
         mapping = {
-            PP_ALIGN.LEFT: "left",
-            PP_ALIGN.CENTER: "center",
-            PP_ALIGN.RIGHT: "right",
-            PP_ALIGN.JUSTIFY: "justify",
+            PP_ALIGN.LEFT: "left", PP_ALIGN.CENTER: "center",
+            PP_ALIGN.RIGHT: "right", PP_ALIGN.JUSTIFY: "justify",
         }
         return mapping.get(para.alignment, "left") if para.alignment else "left"
     except Exception:
         return "left"
 
 
+def _shape_role(shape) -> str:
+    """Determine if a shape is a title, subtitle, or body."""
+    try:
+        if shape.is_placeholder:
+            ph = shape.placeholder_format
+            if ph.type is not None:
+                from pptx.enum.shapes import PP_PLACEHOLDER
+                if ph.type == PP_PLACEHOLDER.TITLE:
+                    return "title"
+                if ph.type == PP_PLACEHOLDER.SUBTITLE:
+                    return "subtitle"
+                if ph.type == PP_PLACEHOLDER.CENTER_TITLE:
+                    return "title"
+        # Heuristic: check shape name
+        name = shape.name.lower() if hasattr(shape, "name") else ""
+        if "title" in name:
+            return "title"
+        if "subtitle" in name:
+            return "subtitle"
+    except Exception:
+        pass
+    return "body"
+
+
 def extract_slides(data: bytes) -> PptxSlideExtract:
     """Extract slide structure from PPTX bytes."""
     from pptx import Presentation
-    from pptx.shapes.base import BaseShape
-    from pptx.shapes.picture import Picture
 
     prs = Presentation(io.BytesIO(data))
     slide_width = prs.slide_width or FALLBACK_WIDTH_EMU
@@ -111,12 +176,14 @@ def extract_slides(data: bytes) -> PptxSlideExtract:
     image_index = 0
 
     for s_idx, slide in enumerate(prs.slides):
+        bg = _get_slide_bg(slide)
         sd = SlideData(
             slide_index=s_idx,
             width_emu=slide_width,
             height_emu=slide_height,
             width_px=round(slide_width * EMU_TO_PX * scale, 1),
             height_px=round(slide_height * EMU_TO_PX * scale, 1),
+            bg_color=bg,
         )
 
         for sh_idx, shape in enumerate(slide.shapes):
@@ -129,79 +196,79 @@ def extract_slides(data: bytes) -> PptxSlideExtract:
                 height=round(shape.height * EMU_TO_PX * scale, 1),
             )
 
-            # Determine shape type
-            shape_type = str(shape.shape_type) if hasattr(shape, "shape_type") else ""
-            is_placeholder = getattr(shape, "is_placeholder", False)
-
             if hasattr(shape, "image") and shape.image:
                 sh_data.shape_type = "picture"
                 sh_data.has_image = True
                 sh_data.image_index = image_index
                 image_index += 1
-            elif shape.has_table:
+                sd.shapes.append(sh_data)
+                continue
+
+            if shape.has_table:
                 sh_data.shape_type = "table"
-                table = shape.table
                 sh_data.table_rows = [
                     [cell.text for cell in row.cells]
-                    for row in table.rows
+                    for row in shape.table.rows
                 ]
-            elif shape.has_text_frame:
-                sh_data.shape_type = "text"
-                tf = shape.text_frame
-                paragraphs: list[dict[str, Any]] = []
-                all_text: list[str] = []
+                sd.shapes.append(sh_data)
+                continue
 
-                for para in tf.paragraphs:
-                    para_text_parts: list[str] = []
-                    para_runs: list[dict[str, Any]] = []
+            if not shape.has_text_frame:
+                sd.shapes.append(sh_data)
+                continue
 
-                    for run in para.runs:
-                        run_data: dict[str, Any] = {"text": run.text}
-                        font = run.font
-                        if font.size:
-                            run_data["font_size"] = round(font.size / 12700, 1)  # EMU → pt
-                        if font.bold:
-                            run_data["bold"] = True
-                        if font.italic:
-                            run_data["italic"] = True
-                        color = _get_font_color(run)
-                        if color:
-                            run_data["color"] = f"#{color}" if not color.startswith("theme:") else color
-                        if font.name:
-                            run_data["font_name"] = font.name
-                        para_runs.append(run_data)
-                        para_text_parts.append(run.text)
+            sh_data.shape_type = "text"
+            role = _shape_role(shape)
+            sh_data.is_title = (role == "title")
+            tf = shape.text_frame
+            paragraphs: list[dict[str, Any]] = []
+            all_text: list[str] = []
 
-                    para_text = "".join(para_text_parts)
-                    if para_text.strip():
-                        all_text.append(para_text)
+            for para in tf.paragraphs:
+                para_runs: list[dict[str, Any]] = []
+                para_text_parts: list[str] = []
 
-                    paragraphs.append({
-                        "text": para_text,
-                        "runs": para_runs,
-                        "alignment": _get_alignment(para),
-                        "level": para.level if para.level else 0,
-                    })
+                for run in para.runs:
+                    font_info = _get_effective_font(run, role == "title")
+                    run_data: dict[str, Any] = {"text": run.text, **font_info}
+                    para_runs.append(run_data)
+                    para_text_parts.append(run.text)
 
-                sh_data.paragraphs = paragraphs
-                sh_data.text = "\n".join(all_text)
+                para_text = "".join(para_text_parts)
+                if para_text.strip():
+                    all_text.append(para_text)
 
-                # Inherit font style from first run of first paragraph
-                for para in paragraphs:
-                    if para["runs"]:
-                        first = para["runs"][0]
-                        sh_data.font_size = first.get("font_size")
-                        sh_data.font_name = first.get("font_name")
-                        sh_data.font_bold = first.get("bold", False)
-                        sh_data.font_italic = first.get("italic", False)
-                        sh_data.font_color = first.get("color")
-                        sh_data.alignment = para["alignment"]
-                        break
+                paragraphs.append({
+                    "text": para_text,
+                    "runs": para_runs,
+                    "alignment": _get_alignment(para),
+                    "level": para.level if para.level else 0,
+                })
 
-                # Try fill color
-                fill = _get_fill_color(shape)
-                if fill:
-                    sh_data.fill_color = f"#{fill}"
+            sh_data.paragraphs = paragraphs
+            sh_data.text = "\n".join(all_text)
+
+            # Shape-level font from first run of first non-empty paragraph
+            for para in paragraphs:
+                if para["runs"]:
+                    first = para["runs"][0]
+                    sh_data.font_size = first.get("font_size")
+                    sh_data.font_name = first.get("font_name")
+                    sh_data.font_bold = first.get("bold", False)
+                    sh_data.font_italic = first.get("italic", False)
+                    sh_data.font_color = first.get("color")
+                    sh_data.alignment = para["alignment"]
+                    break
+
+            # If no runs had text, still use defaults
+            if sh_data.font_size is None:
+                sh_data.font_size = 28 if role == "title" else 18
+            if role == "title" and not sh_data.font_bold:
+                sh_data.font_bold = True
+
+            fill = _get_shape_fill(shape)
+            if fill:
+                sh_data.fill_color = fill
 
             sd.shapes.append(sh_data)
         slides.append(sd)
@@ -210,10 +277,7 @@ def extract_slides(data: bytes) -> PptxSlideExtract:
 
 
 def extract_slide_image(data: bytes, slide_index: int, image_index: int) -> tuple[bytes, str] | None:
-    """Extract a specific embedded image from a PPTX file.
-
-    Returns (image_bytes, content_type) or None if not found.
-    """
+    """Extract a specific embedded image from a PPTX file."""
     from pptx import Presentation
 
     prs = Presentation(io.BytesIO(data))

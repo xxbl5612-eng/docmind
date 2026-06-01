@@ -287,6 +287,7 @@ export interface SlideShape {
   image_index: number | null;
   table_rows: string[][] | null;
   paragraphs: SlideParagraph[];
+  is_title: boolean;
 }
 
 export interface SlideData {
@@ -296,6 +297,7 @@ export interface SlideData {
   width_px: number;
   height_px: number;
   shapes: SlideShape[];
+  bg_color: string | null;
 }
 
 export interface SlidesResponse {

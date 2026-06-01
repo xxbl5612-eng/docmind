@@ -134,6 +134,7 @@ class SlideShapeData(BaseModel):
     image_index: int | None = None
     table_rows: list[list[str]] | None = None
     paragraphs: list[SlideParagraph] = []
+    is_title: bool = False
 
 
 class SlideData(BaseModel):
@@ -143,6 +144,7 @@ class SlideData(BaseModel):
     width_px: float
     height_px: float
     shapes: list[SlideShapeData] = []
+    bg_color: str | None = None
 
 
 class SlidesResponse(BaseModel):
