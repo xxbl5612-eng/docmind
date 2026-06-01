@@ -156,6 +156,11 @@ async def delete_document(
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
+    # Decrement document quota
+    from src.services.user_service import UserService
+    user_svc = UserService(db, cache)
+    await user_svc.decrement_quota(current_user, "documents")
+
     log_svc = OperationLogService(db)
     await log_svc.log(
         user_id=current_user.id,

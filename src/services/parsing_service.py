@@ -6,7 +6,7 @@ import io
 
 
 def parse_pdf(data: bytes) -> str:
-    """Extract text from PDF using pdfplumber (better text extraction)."""
+    """Extract text from PDF using pdfplumber, falling back to OCR for image-based PDFs."""
     import pdfplumber
     parts: list[str] = []
     with pdfplumber.open(io.BytesIO(data)) as pdf:
@@ -14,7 +14,17 @@ def parse_pdf(data: bytes) -> str:
             text = page.extract_text()
             if text:
                 parts.append(text)
-    return "\n\n".join(parts)
+    result = "\n\n".join(parts).strip()
+
+    # If no text found, try OCR on rendered pages (image-based PDF)
+    if not result:
+        try:
+            from src.ai.ocr import ocr_pdf_pages
+            result = ocr_pdf_pages(data)
+        except Exception:
+            pass
+
+    return result
 
 
 def parse_docx(data: bytes) -> str:
@@ -89,17 +99,37 @@ def parse_html(data: bytes) -> str:
     return _html_to_plain(raw)
 
 
+def parse_doc(data: bytes) -> str:
+    """Extract text from legacy .doc files (limited support).
+
+    .doc is a proprietary binary format. For best results, convert .doc
+    files to .docx before uploading. Falls back to plain-text decoding
+    which may produce partial extraction with binary noise.
+    """
+    return parse_text(data)
+
+
+def parse_image(data: bytes) -> str:
+    """Extract text from images (PNG/JPEG) using OCR."""
+    from src.ai.ocr import ocr_image
+    return ocr_image(data)
+
+
 # ── Parser registry ──
 
 PARSERS = {
     "pdf": parse_pdf,
     "docx": parse_docx,
+    "doc": parse_doc,
     "pptx": parse_pptx,
     "xlsx": parse_xlsx,
     "csv": parse_csv,
     "txt": parse_text,
     "md": parse_markdown,
     "html": parse_html,
+    "png": parse_image,
+    "jpg": parse_image,
+    "jpeg": parse_image,
 }
 
 

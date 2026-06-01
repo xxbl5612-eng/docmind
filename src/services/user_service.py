@@ -47,8 +47,16 @@ class UserService:
         if cached:
             return cached
 
+        # Always reload from DB to get the latest quota values
+        # (user may be a cached/deserialized object with stale quota data)
+        stmt = select(User.quota_used_docs, User.quota_used_ai_calls,
+                      User.quota_used_storage_bytes, User.tier,
+                      User.quota_period_start).where(User.id == user.id)
+        result = await self.db.execute(stmt)
+        row = result.one()
+
         # Get tier limits
-        tier = await self._get_tier(user.tier)
+        tier = await self._get_tier(row.tier)
         if tier is None:
             tier_limits = {}
         else:
@@ -64,11 +72,11 @@ class UserService:
             }
 
         usage = {
-            "tier": user.tier,
-            "quota_used_docs": user.quota_used_docs,
-            "quota_used_ai_calls": user.quota_used_ai_calls,
-            "quota_used_storage_bytes": user.quota_used_storage_bytes,
-            "quota_period_start": str(user.quota_period_start),
+            "tier": row.tier,
+            "quota_used_docs": row.quota_used_docs,
+            "quota_used_ai_calls": row.quota_used_ai_calls,
+            "quota_used_storage_bytes": row.quota_used_storage_bytes,
+            "quota_period_start": str(row.quota_period_start),
             "tier_limits": tier_limits,
         }
 
@@ -95,14 +103,44 @@ class UserService:
 
     async def increment_quota(self, user: User, resource: str, amount: int = 1) -> None:
         """Increment quota usage."""
+        user = await self._ensure_attached(user)
         if resource == "documents":
             user.quota_used_docs += amount
         elif resource == "ai_calls":
             user.quota_used_ai_calls += amount
         elif resource == "storage":
             user.quota_used_storage_bytes += amount
+        user_id = str(user.id)
         await self.db.commit()
-        await self.cache.delete(KEY_USER_QUOTAS.format(user_id=str(user.id)))
+        await self.cache.delete(KEY_USER_QUOTAS.format(user_id=user_id))
+        await self.cache.delete(KEY_USER_PROFILE.format(user_id=user_id))
+
+    async def decrement_quota(self, user: User, resource: str, amount: int = 1) -> None:
+        """Decrement quota usage (e.g. on document delete)."""
+        user = await self._ensure_attached(user)
+        if resource == "documents":
+            user.quota_used_docs = max(0, user.quota_used_docs - amount)
+        elif resource == "ai_calls":
+            user.quota_used_ai_calls = max(0, user.quota_used_ai_calls - amount)
+        elif resource == "storage":
+            user.quota_used_storage_bytes = max(0, user.quota_used_storage_bytes - amount)
+        user_id = str(user.id)
+        await self.db.commit()
+        await self.cache.delete(KEY_USER_QUOTAS.format(user_id=user_id))
+        await self.cache.delete(KEY_USER_PROFILE.format(user_id=user_id))
+
+    async def _ensure_attached(self, user: User) -> User:
+        """Reload user from DB to ensure it's attached to the current session.
+
+        This is necessary because get_user() may return a deserialized object
+        from cache that is detached from any SQLAlchemy session.
+        """
+        stmt = select(User).where(User.id == user.id)
+        result = await self.db.execute(stmt)
+        fresh = result.scalar_one_or_none()
+        if fresh is None:
+            raise ValueError("User not found")
+        return fresh
 
     async def _get_tier(self, tier_name: str) -> TierDefinition | None:
         cache_key = f"docmind:tier:{tier_name}"
