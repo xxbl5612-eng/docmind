@@ -80,49 +80,39 @@ function RichParagraph({ p, defaultFontSize, scale }: {
   p: SlideParagraph; defaultFontSize: number; scale: number;
 }) {
   const fontSize = defaultFontSize * scale;
+  const indent = (p.level || 0) * 16;
+  const bullet = p.bullet_type === 'bullet' ? (p.bullet_char || '●') : null;
 
-  if (!p.runs || p.runs.length === 0) {
-    if (!p.text) return null;
-    return (
-      <p style={{
-        textAlign: (p.alignment as 'left' | 'center' | 'right' | 'justify') || 'left',
-        fontSize,
-        margin: 0,
-        lineHeight: 1.3,
-      }}>
-        {p.text}
-      </p>
-    );
-  }
+  const textAlign = (p.alignment as 'left' | 'center' | 'right' | 'justify') || 'left';
+
+  const content = p.runs && p.runs.length > 0 ? (
+    p.runs.map((r, i) => (
+      <span
+        key={i}
+        style={{
+          fontWeight: r.bold ? 700 : 400,
+          fontStyle: r.italic ? 'italic' : 'normal',
+          fontSize: (r.font_size ?? defaultFontSize) * scale,
+          color: r.color?.startsWith('#') ? r.color : undefined,
+          fontFamily: r.font_name ?? undefined,
+        }}
+      >
+        {r.text}
+      </span>
+    ))
+  ) : p.text;
+
+  if (!content) return null;
 
   return (
-    <p style={{
-      textAlign: (p.alignment as 'left' | 'center' | 'right' | 'justify') || 'left',
-      fontSize,
-      margin: 0,
-      lineHeight: 1.3,
-    }}>
-      {p.runs.map((r, i) => (
-        <span
-          key={i}
-          style={{
-            fontWeight: r.bold ? 700 : 400,
-            fontStyle: r.italic ? 'italic' : 'normal',
-            fontSize: (r.font_size ?? defaultFontSize) * scale,
-            color: r.color?.startsWith('#') ? r.color : undefined,
-            fontFamily: r.font_name ?? undefined,
-          }}
-        >
-          {r.text}
-        </span>
-      ))}
+    <p style={{ textAlign, fontSize, margin: 0, lineHeight: 1.3, marginLeft: indent }}>
+      {bullet && <span style={{ marginRight: 6, fontSize: fontSize * 0.7 }}>{bullet}</span>}
+      {content}
     </p>
   );
 }
 
-function ShapeElement({ shape, docId, slideIdx, scale }: {
-  shape: SlideShape; docId: string; slideIdx: number; scale: number;
-}) {
+function buildShapeStyle(shape: SlideShape, scale: number): React.CSSProperties {
   const l = shape.left * scale;
   const t = shape.top * scale;
   const w = shape.width * scale;
@@ -134,15 +124,48 @@ function ShapeElement({ shape, docId, slideIdx, scale }: {
     top: t,
     width: w,
     height: h,
-    padding: '2px 4px',
     overflow: 'hidden',
     wordBreak: 'break-word',
     boxSizing: 'border-box',
   };
 
-  if (shape.fill_color) {
+  // Fill
+  if (shape.fill_type === 'solid' && shape.fill_color) {
     style.backgroundColor = shape.fill_color;
+  } else if (shape.fill_type === 'gradient' && shape.gradient_stops?.length) {
+    const stops = shape.gradient_stops
+      .map(s => `${s.color} ${Math.round(s.position * 100)}%`)
+      .join(', ');
+    style.background = `linear-gradient(${shape.gradient_angle || 0}deg, ${stops})`;
   }
+
+  // Border
+  if (shape.border_color) {
+    style.borderColor = shape.border_color;
+    style.borderWidth = `${shape.border_width || 1}px`;
+    style.borderStyle = (shape.border_style as any) || 'solid';
+  }
+  if (shape.border_radius) {
+    style.borderRadius = `${shape.border_radius}px`;
+  }
+
+  // Effects
+  if (shape.rotation) {
+    style.transform = `rotate(${shape.rotation}deg)`;
+  }
+  if (shape.shadow) {
+    style.boxShadow = '2px 3px 8px rgba(0,0,0,0.18)';
+  }
+
+  return style;
+}
+
+function ShapeElement({ shape, docId, slideIdx, scale }: {
+  shape: SlideShape; docId: string; slideIdx: number; scale: number;
+}) {
+  const w = shape.width * scale;
+  const h = shape.height * scale;
+  const style = buildShapeStyle(shape, scale);
 
   switch (shape.shape_type) {
     case 'picture':
@@ -152,33 +175,52 @@ function ShapeElement({ shape, docId, slideIdx, scale }: {
         </div>
       );
 
-    case 'table':
+    case 'table': {
+      const td = shape.table_data;
+      if (!td?.rows) return null;
       return (
         <div style={{ ...style, overflow: 'auto', padding: 0 }}>
-          {shape.table_rows && (
-            <table className="w-full border-collapse text-[10px]">
-              <tbody>
-                {shape.table_rows.map((row, ri) => (
-                  <tr key={ri}>
-                    {row.map((cell, ci) => (
-                      <td key={ci} className="border border-slate-300 px-1 py-0.5">
+          <table className="w-full border-collapse text-[10px]">
+            {td.col_widths && (
+              <colgroup>{td.col_widths.map((cw, i) => <col key={i} style={{ width: `${cw * 100}%` }} />)}</colgroup>
+            )}
+            <tbody>
+              {td.rows.map((row, ri) => (
+                <tr key={ri} className={ri < (td.header_count || 0) ? 'font-bold' : ''}>
+                  {row.map((cell, ci) => {
+                    const styl = td.cell_styles?.find(s => s.row === ri && s.col === ci);
+                    if (styl && (styl.colspan === 0 || styl.rowspan === 0)) return null;
+                    return (
+                      <td key={ci}
+                        colSpan={styl?.colspan || 1}
+                        rowSpan={styl?.rowspan || 1}
+                        style={{
+                          border: '1px solid #cbd5e1',
+                          padding: '1px 4px',
+                          backgroundColor: (ri < (td.header_count || 0)) ? '#f1f5f9' : (styl?.bg_color || undefined),
+                          fontWeight: (ri < (td.header_count || 0)) ? 700 : (styl?.bold ? 700 : 400),
+                          textAlign: (styl?.align as any) || 'left',
+                        }}
+                      >
                         {cell}
                       </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       );
+    }
 
     default: {
       const fontSize = shape.font_size ?? 18;
       const titleScale = shape.is_title ? 1.1 : 1;
+      const textStyle = { ...style, padding: '2px 4px' };
 
       return (
-        <div style={style}>
+        <div style={textStyle}>
           {shape.paragraphs.length > 0 ? (
             shape.paragraphs.map((p, pi) => (
               <RichParagraph key={pi} p={p} defaultFontSize={fontSize * titleScale} scale={scale} />
@@ -209,6 +251,14 @@ function SlideRenderer({ slide, docId }: { slide: SlideData; docId: string }) {
   const w = slide.width_px * scale;
   const h = slide.height_px * scale;
 
+  let bgStyle: string = slide.bg_color || '#ffffff';
+  if (slide.bg_fill_type === 'gradient' && slide.bg_gradient_stops?.length >= 2) {
+    const stops = slide.bg_gradient_stops
+      .map(s => `${s.color} ${Math.round(s.position * 100)}%`)
+      .join(', ');
+    bgStyle = `linear-gradient(${slide.bg_gradient_angle || 0}deg, ${stops})`;
+  }
+
   return (
     <div
       className="relative mx-auto shadow-xl"
@@ -216,17 +266,14 @@ function SlideRenderer({ slide, docId }: { slide: SlideData; docId: string }) {
         width: w,
         height: h,
         overflow: 'hidden',
-        background: slide.bg_color || 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
+        background: bgStyle,
         border: '1px solid rgba(0,0,0,0.08)',
         borderRadius: 2,
       }}
     >
-      {/* Subtle slide border decoration */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600 opacity-70" />
       {slide.shapes.map((shape) => (
         <ShapeElement key={shape.shape_idx} shape={shape} docId={docId} slideIdx={slide.slide_index} scale={scale} />
       ))}
-      {/* Slide number */}
       <div className="absolute bottom-2 right-3 text-[10px] text-slate-400 select-none">
         {slide.slide_index + 1}
       </div>

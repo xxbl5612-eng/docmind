@@ -28,6 +28,18 @@ class SlideShapeData:
     table_rows: list[list[str]] | None = None
     paragraphs: list[dict[str, Any]] = field(default_factory=list)
     is_title: bool = False
+    # Shape styling
+    fill_type: str | None = None
+    gradient_angle: float | None = None
+    gradient_stops: list[dict] = field(default_factory=list)
+    border_color: str | None = None
+    border_width: float | None = None
+    border_style: str | None = None
+    border_radius: float | None = None
+    shadow: bool = False
+    rotation: float | None = None
+    # Enhanced table
+    table_data: dict | None = None
 
 
 @dataclass
@@ -39,6 +51,9 @@ class SlideData:
     height_px: float
     shapes: list[SlideShapeData] = field(default_factory=list)
     bg_color: str | None = None
+    bg_fill_type: str | None = None
+    bg_gradient_stops: list[dict] = field(default_factory=list)
+    bg_gradient_angle: float | None = None
 
 
 @dataclass
@@ -98,33 +113,174 @@ def _get_effective_font(run, shape_is_title: bool) -> dict[str, Any]:
     return result
 
 
-def _get_shape_fill(shape) -> str | None:
-    """Extract shape fill color."""
+def _get_shape_fill_detail(shape) -> dict:
+    """Extract fill type, solid color, and gradient stops."""
+    result = {"fill_type": None, "fill_color": None, "gradient_angle": None, "gradient_stops": []}
     try:
         fill = shape.fill
-        if fill is None:
-            return None
-        ft = str(fill.type) if hasattr(fill, "type") else ""
-        if ft == "SOLID" or not ft:
+        ft_val = fill.type if hasattr(fill, "type") else None
+        ft = ft_val if isinstance(ft_val, str) else str(ft_val) if ft_val is not None else ""
+        if "SOLID" in ft or (not ft and fill.fore_color):
+            result["fill_type"] = "solid"
             fc = _resolve_color(fill.fore_color)
             if fc:
-                return f"#{fc}"
+                result["fill_color"] = f"#{fc}"
+        elif ft and ("GRADIENT" in ft.upper() or "2" in ft):
+            result["fill_type"] = "gradient"
+            try:
+                for gs in fill.gradient_stops:
+                    color = _resolve_color(gs.color)
+                    if color:
+                        result["gradient_stops"].append({"color": f"#{color}", "position": round(gs.position, 2)})
+                result["gradient_angle"] = round(fill.gradient_angle or 0, 1)
+            except Exception:
+                pass
     except Exception:
         pass
-    return None
+    return result
 
 
-def _get_slide_bg(slide) -> str | None:
-    """Extract slide background color."""
+def _get_slide_bg_detail(slide) -> dict:
+    """Extract slide background including gradient."""
+    result = {"bg_color": None, "bg_fill_type": None, "bg_gradient_stops": [], "bg_gradient_angle": None}
     try:
         bg = slide.background
         if bg and bg.fill:
-            fc = _resolve_color(bg.fill.fore_color)
-            if fc:
-                return f"#{fc}"
+            ft_val = bg.fill.type if hasattr(bg.fill, "type") else None
+            ft = ft_val if isinstance(ft_val, str) else str(ft_val) if ft_val is not None else ""
+            if "SOLID" in ft or (not ft and bg.fill.fore_color):
+                result["bg_fill_type"] = "solid"
+                fc = _resolve_color(bg.fill.fore_color)
+                if fc:
+                    result["bg_color"] = f"#{fc}"
+            elif ft and ("GRADIENT" in ft.upper() or "2" in ft):
+                result["bg_fill_type"] = "gradient"
+                try:
+                    for gs in bg.fill.gradient_stops:
+                        color = _resolve_color(gs.color)
+                        if color:
+                            result["bg_gradient_stops"].append({"color": f"#{color}", "position": round(gs.position, 2)})
+                    result["bg_gradient_angle"] = round(bg.fill.gradient_angle or 0, 1)
+                except Exception:
+                    pass
     except Exception:
         pass
-    return None
+    return result
+
+
+def _get_shape_border(shape) -> dict:
+    """Extract shape border/line properties."""
+    result = {"border_color": None, "border_width": None, "border_style": None, "border_radius": None}
+    try:
+        line = shape.line
+        if line and line.fill:
+            fc = _resolve_color(line.fill.fore_color)
+            if fc:
+                result["border_color"] = f"#{fc}"
+        if line and line.width:
+            result["border_width"] = round(line.width / 12700, 1)
+        if line and line.dash_style is not None:
+            from pptx.enum.dml import MSO_LINE_DASH_STYLE
+            dash_map = {
+                MSO_LINE_DASH_STYLE.SOLID: "solid",
+                MSO_LINE_DASH_STYLE.DASH: "dashed",
+                MSO_LINE_DASH_STYLE.DOT: "dotted",
+                MSO_LINE_DASH_STYLE.DASH_DOT: "dashed",
+            }
+            result["border_style"] = dash_map.get(line.dash_style, "solid")
+        # Rounded corners via XML
+        from lxml import etree
+        sp = shape._element
+        prstGeom = sp.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}prstGeom')
+        if prstGeom is not None:
+            prst = prstGeom.get('prst', '')
+            if prst in ('roundRect', 'snipRoundRect', 'roundSameRect'):
+                avLst = prstGeom.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}avLst')
+                if avLst is not None:
+                    gd = avLst.find('{http://schemas.openxmlformats.org/drawingml/2006/main}gd')
+                    if gd is not None and gd.get('fmla'):
+                        result["border_radius"] = round(int(gd.get('fmla').replace('val ', '')) / 12700, 1)
+                    else:
+                        result["border_radius"] = 8
+                else:
+                    result["border_radius"] = 8
+    except Exception:
+        pass
+    return result
+
+
+def _get_shape_effects(shape) -> dict:
+    """Extract shadow and rotation from shape."""
+    result = {"shadow": False, "rotation": None}
+    try:
+        if shape.rotation:
+            result["rotation"] = round(shape.rotation, 1)
+        from lxml import etree
+        sp = shape._element
+        effectLst = sp.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}effectLst')
+        if effectLst is not None:
+            outerShdw = effectLst.find('{http://schemas.openxmlformats.org/drawingml/2006/main}outerShdw')
+            if outerShdw is not None:
+                result["shadow"] = True
+    except Exception:
+        pass
+    return result
+
+
+def _extract_table_data(shape) -> dict:
+    """Extract enhanced table data with merged cells and styles."""
+    table = shape.table
+    rows: list[list[str]] = []
+    cell_styles: list[dict] = []
+    row_count = len(table.rows)
+    col_count = len(table.columns)
+
+    total_w = sum(c.width for c in table.columns) or 1
+    col_widths = [round(c.width / total_w, 3) for c in table.columns]
+
+    header_count = 0
+    if row_count > 0:
+        first_row = table.rows[0]
+        if any(cell.text and cell.text.strip() for cell in first_row.cells):
+            header_count = 1
+
+    for ri, row in enumerate(table.rows):
+        row_texts: list[str] = []
+        for ci, cell in enumerate(row.cells):
+            row_texts.append(cell.text)
+            style: dict = {"row": ri, "col": ci, "bg_color": None, "bold": False, "align": "left", "colspan": 1, "rowspan": 1}
+            try:
+                if cell.fill and cell.fill.fore_color:
+                    fc = _resolve_color(cell.fill.fore_color)
+                    if fc:
+                        style["bg_color"] = f"#{fc}"
+            except Exception:
+                pass
+            try:
+                if cell.text_frame and cell.text_frame.paragraphs:
+                    para = cell.text_frame.paragraphs[0]
+                    if para.runs:
+                        style["bold"] = bool(para.runs[0].font.bold)
+                    style["align"] = _get_alignment(para)
+            except Exception:
+                pass
+            try:
+                if cell.is_merge_origin:
+                    style["rowspan"] = cell.span_height or 1
+                    style["colspan"] = cell.span_width or 1
+                if cell.is_spanned:
+                    style["colspan"] = 0
+                    style["rowspan"] = 0
+            except Exception:
+                pass
+            cell_styles.append(style)
+        rows.append(row_texts)
+
+    return {
+        "rows": rows, "col_widths": col_widths,
+        "header_count": header_count, "cell_styles": cell_styles,
+        "row_count": row_count, "col_count": col_count,
+    }
 
 
 def _get_alignment(para) -> str:
@@ -177,6 +333,27 @@ def _is_group(shape) -> bool:
     return False
 
 
+def _apply_shape_styling(shape, sh_data: SlideShapeData) -> None:
+    """Apply border, shadow, rotation, and fill styling to a shape data object."""
+    border = _get_shape_border(shape)
+    sh_data.border_color = border["border_color"]
+    sh_data.border_width = border["border_width"]
+    sh_data.border_style = border["border_style"]
+    sh_data.border_radius = border["border_radius"]
+    effects = _get_shape_effects(shape)
+    sh_data.shadow = effects["shadow"]
+    sh_data.rotation = effects["rotation"]
+    # Fill for non-text shapes (text shapes handle fill in _process_text_shape)
+    if sh_data.shape_type in ("picture", "table", "other"):
+        fill = _get_shape_fill_detail(shape)
+        sh_data.fill_type = fill["fill_type"]
+        if fill["fill_type"] == "solid":
+            sh_data.fill_color = fill["fill_color"]
+        elif fill["fill_type"] == "gradient":
+            sh_data.gradient_stops = fill["gradient_stops"]
+            sh_data.gradient_angle = fill["gradient_angle"]
+
+
 def _count_images_recursive(shapes, slide_img_idx: int, result_shapes: list, scale: float) -> tuple[int, list]:
     """Recursively extract shapes including from groups. Returns (next_image_idx, shapes)."""
 
@@ -211,10 +388,19 @@ def _count_images_recursive(shapes, slide_img_idx: int, result_shapes: list, sca
             sh_data.has_image = True
             sh_data.image_index = next_idx
             next_idx += 1
+            _apply_shape_styling(shape, sh_data)
+            all_shapes.append(sh_data)
+            continue
+
+        if shape.has_table:
+            sh_data.shape_type = "table"
+            sh_data.table_data = _extract_table_data(shape)
+            _apply_shape_styling(shape, sh_data)
             all_shapes.append(sh_data)
             continue
 
         _process_text_shape(shape, sh_data)
+        _apply_shape_styling(shape, sh_data)
         all_shapes.append(sh_data)
 
     return next_idx, all_shapes
@@ -246,11 +432,31 @@ def _process_text_shape(shape, sh_data: SlideShapeData) -> None:
         if para_text.strip():
             all_text.append(para_text)
 
+        # Bullet detection
+        bullet_char = None
+        bullet_type = "none"
+        try:
+            pPr = para._element.find('{http://schemas.openxmlformats.org/drawingml/2006/main}pPr')
+            if pPr is not None:
+                buChar = pPr.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}buChar')
+                if buChar is not None:
+                    bullet_char = buChar.get('char')
+                    bullet_type = "bullet"
+                else:
+                    buNone = pPr.find('.//{http://schemas.openxmlformats.org/drawingml/2006/main}buNone')
+                    if buNone is None and para.level and para.level > 0:
+                        bullet_type = "bullet"
+                        bullet_char = "●" if para.level == 1 else "○"
+        except Exception:
+            pass
+
         paragraphs.append({
             "text": para_text,
             "runs": para_runs,
             "alignment": _get_alignment(para),
             "level": para.level if para.level else 0,
+            "bullet_type": bullet_type,
+            "bullet_char": bullet_char,
         })
 
     sh_data.paragraphs = paragraphs
@@ -272,9 +478,13 @@ def _process_text_shape(shape, sh_data: SlideShapeData) -> None:
     if role == "title" and not sh_data.font_bold:
         sh_data.font_bold = True
 
-    fill = _get_shape_fill(shape)
-    if fill:
-        sh_data.fill_color = fill
+    fill = _get_shape_fill_detail(shape)
+    sh_data.fill_type = fill["fill_type"]
+    if fill["fill_type"] == "solid":
+        sh_data.fill_color = fill["fill_color"]
+    elif fill["fill_type"] == "gradient":
+        sh_data.gradient_stops = fill["gradient_stops"]
+        sh_data.gradient_angle = fill["gradient_angle"]
 
 
 def _shape_role(shape) -> str:
@@ -314,14 +524,17 @@ def extract_slides(data: bytes) -> PptxSlideExtract:
     total_images = 0
 
     for s_idx, slide in enumerate(prs.slides):
-        bg = _get_slide_bg(slide)
+        bg_detail = _get_slide_bg_detail(slide)
         sd = SlideData(
             slide_index=s_idx,
             width_emu=slide_width,
             height_emu=slide_height,
             width_px=round(slide_width * EMU_TO_PX * scale, 1),
             height_px=round(slide_height * EMU_TO_PX * scale, 1),
-            bg_color=bg,
+            bg_color=bg_detail["bg_color"],
+            bg_fill_type=bg_detail["bg_fill_type"],
+            bg_gradient_stops=bg_detail["bg_gradient_stops"],
+            bg_gradient_angle=bg_detail["bg_gradient_angle"],
         )
         slide_image_idx, slide_shapes = _count_images_recursive(
             slide.shapes, 0, [], scale

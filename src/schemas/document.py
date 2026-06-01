@@ -113,6 +113,27 @@ class SlideParagraph(BaseModel):
     runs: list[SlideParagraphRun] = []
     alignment: str = "left"
     level: int = 0
+    bullet_type: str | None = None
+    bullet_char: str | None = None
+
+
+class TableCellStyle(BaseModel):
+    row: int
+    col: int
+    bg_color: str | None = None
+    bold: bool = False
+    align: str = "left"
+    colspan: int = 1
+    rowspan: int = 1
+
+
+class TableData(BaseModel):
+    rows: list[list[str]]
+    col_widths: list[float] | None = None
+    header_count: int = 0
+    cell_styles: list[TableCellStyle] = []
+    row_count: int = 0
+    col_count: int = 0
 
 
 class SlideShapeData(BaseModel):
@@ -135,6 +156,16 @@ class SlideShapeData(BaseModel):
     table_rows: list[list[str]] | None = None
     paragraphs: list[SlideParagraph] = []
     is_title: bool = False
+    fill_type: str | None = None
+    gradient_angle: float | None = None
+    gradient_stops: list[dict] = []
+    border_color: str | None = None
+    border_width: float | None = None
+    border_style: str | None = None
+    border_radius: float | None = None
+    shadow: bool = False
+    rotation: float | None = None
+    table_data: TableData | None = None
 
 
 class SlideData(BaseModel):
@@ -145,6 +176,9 @@ class SlideData(BaseModel):
     height_px: float
     shapes: list[SlideShapeData] = []
     bg_color: str | None = None
+    bg_fill_type: str | None = None
+    bg_gradient_stops: list[dict] = []
+    bg_gradient_angle: float | None = None
 
 
 class SlidesResponse(BaseModel):

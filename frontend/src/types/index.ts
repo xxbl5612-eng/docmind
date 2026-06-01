@@ -281,6 +281,32 @@ export interface SlideParagraph {
   runs: SlideParagraphRun[];
   alignment: string;
   level: number;
+  bullet_type: string | null;
+  bullet_char: string | null;
+}
+
+export interface GradientStop {
+  color: string;
+  position: number;
+}
+
+export interface TableCellStyle {
+  row: number;
+  col: number;
+  bg_color: string | null;
+  bold: boolean;
+  align: string;
+  colspan: number;
+  rowspan: number;
+}
+
+export interface TableData {
+  rows: string[][];
+  col_widths: number[] | null;
+  header_count: number;
+  cell_styles: TableCellStyle[];
+  row_count: number;
+  col_count: number;
 }
 
 export interface SlideShape {
@@ -303,6 +329,16 @@ export interface SlideShape {
   table_rows: string[][] | null;
   paragraphs: SlideParagraph[];
   is_title: boolean;
+  fill_type: string | null;
+  gradient_angle: number | null;
+  gradient_stops: GradientStop[];
+  border_color: string | null;
+  border_width: number | null;
+  border_style: string | null;
+  border_radius: number | null;
+  shadow: boolean;
+  rotation: number | null;
+  table_data: TableData | null;
 }
 
 export interface SlideData {
@@ -313,6 +349,9 @@ export interface SlideData {
   height_px: number;
   shapes: SlideShape[];
   bg_color: string | null;
+  bg_fill_type: string | null;
+  bg_gradient_stops: GradientStop[];
+  bg_gradient_angle: number | null;
 }
 
 export interface SlidesResponse {

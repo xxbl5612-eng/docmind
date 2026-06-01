@@ -274,7 +274,7 @@ async def get_slides(
     from src.services.pptx_slide_service import extract_slides
     slide_data = extract_slides(original_bytes)
 
-    from src.schemas.document import SlideData, SlideShapeData, SlideParagraph, SlideParagraphRun
+    from src.schemas.document import SlideData, SlideShapeData, SlideParagraph, SlideParagraphRun, TableData, TableCellStyle
 
     slides_resp: list[SlideData] = []
     for sd in slide_data.slides:
@@ -297,36 +297,46 @@ async def get_slides(
                     runs=runs_resp,
                     alignment=p.get("alignment", "left"),
                     level=p.get("level", 0),
+                    bullet_type=p.get("bullet_type"),
+                    bullet_char=p.get("bullet_char"),
                 ))
+            # Build TableData if present
+            td = None
+            if sh.table_data:
+                cs = [TableCellStyle(**s) for s in sh.table_data.get("cell_styles", [])]
+                td = TableData(
+                    rows=sh.table_data.get("rows", []),
+                    col_widths=sh.table_data.get("col_widths"),
+                    header_count=sh.table_data.get("header_count", 0),
+                    cell_styles=cs,
+                    row_count=sh.table_data.get("row_count", 0),
+                    col_count=sh.table_data.get("col_count", 0),
+                )
             shapes_resp.append(SlideShapeData(
-                shape_idx=sh.shape_idx,
-                shape_type=sh.shape_type,
-                left=sh.left,
-                top=sh.top,
-                width=sh.width,
-                height=sh.height,
-                text=sh.text,
-                font_size=sh.font_size,
-                font_name=sh.font_name,
-                font_bold=sh.font_bold,
-                font_italic=sh.font_italic,
-                font_color=sh.font_color,
-                fill_color=sh.fill_color,
-                alignment=sh.alignment,
-                has_image=sh.has_image,
-                image_index=sh.image_index,
-                table_rows=sh.table_rows,
-                paragraphs=paragraphs_resp,
-                is_title=sh.is_title,
+                shape_idx=sh.shape_idx, shape_type=sh.shape_type,
+                left=sh.left, top=sh.top, width=sh.width, height=sh.height,
+                text=sh.text, font_size=sh.font_size, font_name=sh.font_name,
+                font_bold=sh.font_bold, font_italic=sh.font_italic,
+                font_color=sh.font_color, fill_color=sh.fill_color,
+                alignment=sh.alignment, has_image=sh.has_image,
+                image_index=sh.image_index, table_rows=sh.table_rows,
+                paragraphs=paragraphs_resp, is_title=sh.is_title,
+                fill_type=sh.fill_type, gradient_angle=sh.gradient_angle,
+                gradient_stops=sh.gradient_stops,
+                border_color=sh.border_color, border_width=sh.border_width,
+                border_style=sh.border_style, border_radius=sh.border_radius,
+                shadow=sh.shadow, rotation=sh.rotation,
+                table_data=td,
             ))
         slides_resp.append(SlideData(
             slide_index=sd.slide_index,
-            width_emu=sd.width_emu,
-            height_emu=sd.height_emu,
-            width_px=sd.width_px,
-            height_px=sd.height_px,
+            width_emu=sd.width_emu, height_emu=sd.height_emu,
+            width_px=sd.width_px, height_px=sd.height_px,
             shapes=shapes_resp,
             bg_color=sd.bg_color,
+            bg_fill_type=sd.bg_fill_type,
+            bg_gradient_stops=sd.bg_gradient_stops,
+            bg_gradient_angle=sd.bg_gradient_angle,
         ))
 
     return APIResponse(
