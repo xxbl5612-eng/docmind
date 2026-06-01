@@ -1,0 +1,38 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+.venv/
+venv/
+
+# ── Node ──
+node_modules/
+frontend/dist/
+
+# ── Environment ──
+.env
+
+# ── Database ──
+*.db
+*.sqlite3
+
+# ── Storage ──
+_storage/
+
+# ── IDE / Editor ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Claude ──
+.claude/settings.local.json
+
+# ── Docker ──
+docker-compose.override.yml

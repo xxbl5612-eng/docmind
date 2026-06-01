@@ -1,0 +1,15 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir fastapi uvicorn[standard] pydantic pydantic-settings sqlalchemy[asyncio] asyncpg redis[hiredis] celery[redis] httpx python-multipart python-jose[cryptography] argon2-cffi cachetools orjson minio python-docx openpyxl python-pptx pypdf pdfplumber markdown chardet structlog prometheus-client websockets typer
+
+COPY src/ ./src/
+
+CMD ["celery", "-A", "src.core.celery_app", "worker", "--loglevel=info", "--concurrency=4", "-Q", "high_priority,default,export,maintenance"]
