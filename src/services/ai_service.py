@@ -81,7 +81,7 @@ class AIService:
     ) -> AIProcessingJob:
         """Dispatch a long-document AI task to Celery."""
         job = AIProcessingJob(
-            task_id=uuid.uuid4(),
+            task_id=str(uuid.uuid4()),
             user_id=user_id,
             document_id=doc.id,
             job_type=job_type,
