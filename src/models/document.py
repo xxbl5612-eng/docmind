@@ -1,9 +1,11 @@
 """Document model."""
+
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, CHAR, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import UUIDMixin, TimestampMixin, Base as _Base
@@ -12,7 +14,7 @@ from src.models.base import UUIDMixin, TimestampMixin, Base as _Base
 class Document(_Base, UUIDMixin, TimestampMixin):
     __tablename__ = "documents"
 
-    owner_id: Mapped[str] = mapped_column(CHAR(36), ForeignKey("users.id"), nullable=False, index=True)
+    owner_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     input_format: Mapped[str] = mapped_column(String(16), nullable=False)
     output_format: Mapped[str | None] = mapped_column(String(16), nullable=True)
@@ -27,8 +29,8 @@ class Document(_Base, UUIDMixin, TimestampMixin):
     tags: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     folder: Mapped[str | None] = mapped_column(String(512), nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    current_version_id: Mapped[str | None] = mapped_column(CHAR(36), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    current_version_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     owner = relationship("User", back_populates="documents")

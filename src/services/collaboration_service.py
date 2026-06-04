@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -20,8 +21,8 @@ class CollaborationService:
 
     async def create_session(
         self,
-        doc_id: str,
-        owner_id: str,
+        doc_id: uuid.UUID,
+        owner_id: uuid.UUID,
         max_collaborators: int = 10,
         expires_in_hours: int = 24,
     ) -> CollaborationSession:
@@ -50,12 +51,12 @@ class CollaborationService:
         await self._invalidate_collab_cache(str(doc_id))
         return session
 
-    async def get_session(self, session_id: str) -> CollaborationSession | None:
+    async def get_session(self, session_id: uuid.UUID) -> CollaborationSession | None:
         stmt = select(CollaborationSession).where(CollaborationSession.id == session_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_active_sessions(self, doc_id: str) -> list[CollaborationSession]:
+    async def get_active_sessions(self, doc_id: uuid.UUID) -> list[CollaborationSession]:
         stmt = (select(CollaborationSession)
                 .where(CollaborationSession.document_id == doc_id)
                 .where(CollaborationSession.status == "active"))
@@ -64,8 +65,8 @@ class CollaborationService:
 
     async def invite_collaborator(
         self,
-        session_id: str,
-        inviter_id: str,
+        session_id: uuid.UUID,
+        inviter_id: uuid.UUID,
         invitee_email: str,
         permission: str = "view",
     ) -> CollaborationInvitation:
@@ -86,7 +87,7 @@ class CollaborationService:
         await self.db.refresh(invitation)
         return invitation
 
-    async def accept_invitation(self, invite_id: str, user_id: str) -> Collaborator | None:
+    async def accept_invitation(self, invite_id: uuid.UUID, user_id: uuid.UUID) -> Collaborator | None:
         """Accept an invitation and join the session."""
         stmt = select(CollaborationInvitation).where(CollaborationInvitation.id == invite_id)
         result = await self.db.execute(stmt)
@@ -94,7 +95,7 @@ class CollaborationService:
 
         if invitation is None or invitation.status != "pending":
             return None
-        if invitation.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
+        if invitation.expires_at < datetime.now(timezone.utc):
             invitation.status = "expired"
             await self.db.commit()
             return None
@@ -121,7 +122,7 @@ class CollaborationService:
         return collab
 
     async def update_permission(
-        self, session_id: str, user_id: str, permission: str
+        self, session_id: uuid.UUID, user_id: uuid.UUID, permission: str
     ) -> bool:
         """Update a collaborator's permission."""
         stmt = select(Collaborator).where(
@@ -137,7 +138,7 @@ class CollaborationService:
         await self.db.commit()
         return True
 
-    async def remove_collaborator(self, session_id: str, user_id: str) -> bool:
+    async def remove_collaborator(self, session_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         """Remove a collaborator from a session."""
         stmt = select(Collaborator).where(
             Collaborator.session_id == session_id,
@@ -156,7 +157,7 @@ class CollaborationService:
             await self._invalidate_collab_cache(str(session.document_id))
         return True
 
-    async def end_session(self, session_id: str, user_id: str) -> bool:
+    async def end_session(self, session_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         """End a collaboration session (owner only)."""
         session = await self.get_session(session_id)
         if session is None or str(session.owner_id) != str(user_id):
@@ -169,12 +170,12 @@ class CollaborationService:
             await self._invalidate_collab_cache(str(session.document_id))
         return True
 
-    async def get_collaborators(self, session_id: str) -> list[Collaborator]:
+    async def get_collaborators(self, session_id: uuid.UUID) -> list[Collaborator]:
         stmt = select(Collaborator).where(Collaborator.session_id == session_id)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_pending_invitations(self, user_id: str) -> list[CollaborationInvitation]:
+    async def get_pending_invitations(self, user_id: uuid.UUID) -> list[CollaborationInvitation]:
         # This would match by email-to-user-id mapping
         stmt = select(CollaborationInvitation).where(
             CollaborationInvitation.invitee_id == user_id,

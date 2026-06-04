@@ -1,23 +1,21 @@
 version: "3.9"
 
 services:
-  mysql:
-    image: mysql:8.4
+  postgres:
+    image: postgres:16-alpine
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: docmind
-      MYSQL_USER: docmind
-      MYSQL_PASSWORD: docmind
+      POSTGRES_USER: docmind
+      POSTGRES_PASSWORD: docmind
+      POSTGRES_DB: docmind
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "docmind", "-pdocmind"]
+      test: ["CMD-SHELL", "pg_isready -U docmind"]
       interval: 5s
       timeout: 5s
-      retries: 10
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -49,8 +47,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=mysql+asyncmy://docmind:docmind@mysql:3306/docmind?charset=utf8mb4
-      - DATABASE_URL_SYNC=mysql+mysqldb://docmind:docmind@mysql:3306/docmind?charset=utf8mb4
+      - DATABASE_URL=postgresql+asyncpg://docmind:docmind@postgres:5432/docmind
+      - DATABASE_URL_SYNC=postgresql://docmind:docmind@postgres:5432/docmind
       - REDIS_CACHE_URL=redis://redis:6379/0
       - REDIS_BROKER_URL=redis://redis:6379/1
       - REDIS_RESULT_BACKEND=redis://redis:6379/2
@@ -60,7 +58,7 @@ services:
       - STORAGE_BUCKET=docmind
       - STORAGE_SECURE=false
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -72,8 +70,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.worker
     environment:
-      - DATABASE_URL=mysql+asyncmy://docmind:docmind@mysql:3306/docmind?charset=utf8mb4
-      - DATABASE_URL_SYNC=mysql+mysqldb://docmind:docmind@mysql:3306/docmind?charset=utf8mb4
+      - DATABASE_URL=postgresql+asyncpg://docmind:docmind@postgres:5432/docmind
+      - DATABASE_URL_SYNC=postgresql://docmind:docmind@postgres:5432/docmind
       - REDIS_CACHE_URL=redis://redis:6379/0
       - REDIS_BROKER_URL=redis://redis:6379/1
       - REDIS_RESULT_BACKEND=redis://redis:6379/2
@@ -83,7 +81,7 @@ services:
       - STORAGE_BUCKET=docmind
       - STORAGE_SECURE=false
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -91,5 +89,5 @@ services:
       - ../src:/app/src
 
 volumes:
-  mysql_data:
+  pgdata:
   minio_data:

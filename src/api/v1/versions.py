@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,11 +55,11 @@ async def get_version_content(
     cache: CacheManager = Depends(get_cache),
 ):
     svc = VersionService(db, cache)
-    content = await svc.get_version_content(doc.id, version_id)
+    content = await svc.get_version_content(doc.id, uuid.UUID(version_id))
     if content is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
 
-    version = await svc.get_version(doc.id, version_id)
+    version = await svc.get_version(doc.id, uuid.UUID(version_id))
     return APIResponse(
         success=True,
         data=VersionContentResponse(
@@ -78,7 +80,7 @@ async def restore_version(
     cache: CacheManager = Depends(get_cache),
 ):
     svc = VersionService(db, cache)
-    new_version = await svc.restore_version(doc.id, version_id, current_user.id)
+    new_version = await svc.restore_version(doc.id, uuid.UUID(version_id), current_user.id)
     if new_version is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
 
@@ -107,7 +109,7 @@ async def diff_versions(
     cache: CacheManager = Depends(get_cache),
 ):
     svc = VersionService(db, cache)
-    diff = await svc.diff_versions(doc.id, ver_a, ver_b)
+    diff = await svc.diff_versions(doc.id, uuid.UUID(ver_a), uuid.UUID(ver_b))
     if diff is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
 

@@ -9,6 +9,7 @@ from src.models.collaboration import (
     CollaborationInvitation,
     AIProcessingJob,
 )
+from src.models.tier import TierDefinition, EnterpriseAPIKey, CacheInvalidationKey
 from src.models.oauth import OAuthAccount
 
 __all__ = [
@@ -24,5 +25,8 @@ __all__ = [
     "Collaborator",
     "CollaborationInvitation",
     "AIProcessingJob",
+    "TierDefinition",
+    "EnterpriseAPIKey",
+    "CacheInvalidationKey",
     "OAuthAccount",
 ]

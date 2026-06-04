@@ -75,13 +75,13 @@ class AIService:
     async def dispatch_async(
         self,
         doc: Document,
-        user_id: str,
+        user_id: uuid.UUID,
         job_type: str,
         params: dict[str, Any],
     ) -> AIProcessingJob:
         """Dispatch a long-document AI task to Celery."""
         job = AIProcessingJob(
-            task_id=str(uuid.uuid4()),
+            task_id=uuid.uuid4(),
             user_id=user_id,
             document_id=doc.id,
             job_type=job_type,
@@ -106,12 +106,12 @@ class AIService:
         threshold = settings.doc_max_sync_chars
         return (doc.char_count or 0) > threshold
 
-    async def get_job_status(self, task_id: str) -> AIProcessingJob | None:
+    async def get_job_status(self, task_id: uuid.UUID) -> AIProcessingJob | None:
         stmt = select(AIProcessingJob).where(AIProcessingJob.task_id == task_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def list_jobs(self, user_id: str, page: int = 1, page_size: int = 20) -> list[AIProcessingJob]:
+    async def list_jobs(self, user_id: uuid.UUID, page: int = 1, page_size: int = 20) -> list[AIProcessingJob]:
         stmt = (select(AIProcessingJob)
                 .where(AIProcessingJob.user_id == user_id)
                 .order_by(AIProcessingJob.created_at.desc())
@@ -120,7 +120,7 @@ class AIService:
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def cancel_job(self, task_id: str, user_id: str) -> bool:
+    async def cancel_job(self, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         job = await self.get_job_status(task_id)
         if job is None or str(job.user_id) != str(user_id):
             return False

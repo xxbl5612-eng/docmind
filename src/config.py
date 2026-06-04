@@ -3,8 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-import secrets
-
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,15 +19,15 @@ class Settings(BaseSettings):
     # ── Application ──
     app_env: Literal["development", "staging", "production"] = "development"
     app_debug: bool = True
-    app_secret_key: SecretStr = SecretStr(secrets.token_hex(32))
+    app_secret_key: SecretStr = SecretStr("change-me-to-a-random-256-bit-hex-string")
     api_v1_prefix: str = "/api/v1"
     use_dev_fallback: bool = False  # Use SQLite + local fs + in-memory cache (no external deps)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     cors_allowed_origins: str = "http://localhost:5173"  # comma-separated
 
     # ── Database ──
-    database_url: str = "mysql+asyncmy://docmind:docmind@localhost:3306/docmind?charset=utf8mb4"
-    database_url_sync: str = "mysql+mysqldb://docmind:docmind@localhost:3306/docmind?charset=utf8mb4"
+    database_url: str = "postgresql+asyncpg://docmind:docmind@localhost:5432/docmind"
+    database_url_sync: str = "postgresql://docmind:docmind@localhost:5432/docmind"
     sqlite_url: str = "sqlite+aiosqlite:///./docmind_dev.db"
 
     # ── Redis ──
@@ -82,7 +80,7 @@ class Settings(BaseSettings):
     github_oauth_client_id: str = ""
     github_oauth_client_secret: SecretStr = SecretStr("")
     github_oauth_redirect_uri: str = "http://localhost:5173/auth/github/callback"
-    github_oauth_token_encryption_key: SecretStr = SecretStr("nB7B7bkI1Vpv7jaDpWvyuZd9sj2wIe0qPNA69V5nv9Y=")
+    github_oauth_token_encryption_key: SecretStr = SecretStr("change-me-fernet-key-32-bytes-b64")
 
     # ── Collaboration ──
     collab_snapshot_edits: int = 50

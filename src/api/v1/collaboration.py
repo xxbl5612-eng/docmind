@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_cache, get_current_active_user, get_db, require_document_access
+from src.api.deps import get_cache, get_current_active_user, get_db, require_document_access, require_tier
 from src.core.cache import CacheManager
 from src.models.user import User
 from src.schemas.collaboration import (
@@ -28,6 +30,7 @@ async def create_session(
     body: CreateSessionRequest,
     doc = Depends(require_document_access("edit")),
     current_user: User = Depends(get_current_active_user),
+    _: User = Depends(require_tier("white_collar")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -76,7 +79,7 @@ async def invite_collaborator(
 ):
     svc = CollaborationService(db, cache)
     invite = await svc.invite_collaborator(
-        session_id=session_id,
+        session_id=uuid.UUID(session_id),
         inviter_id=current_user.id,
         invitee_email=body.email,
         permission=body.permission,
@@ -98,7 +101,7 @@ async def update_permission(
     cache: CacheManager = Depends(get_cache),
 ):
     svc = CollaborationService(db, cache)
-    ok = await svc.update_permission(session_id, user_id, body.permission)
+    ok = await svc.update_permission(uuid.UUID(session_id), uuid.UUID(user_id), body.permission)
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
@@ -118,7 +121,7 @@ async def remove_collaborator(
     cache: CacheManager = Depends(get_cache),
 ):
     svc = CollaborationService(db, cache)
-    ok = await svc.remove_collaborator(session_id, user_id)
+    ok = await svc.remove_collaborator(uuid.UUID(session_id), uuid.UUID(user_id))
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
@@ -137,7 +140,7 @@ async def end_session(
     cache: CacheManager = Depends(get_cache),
 ):
     svc = CollaborationService(db, cache)
-    ok = await svc.end_session(session_id, current_user.id)
+    ok = await svc.end_session(uuid.UUID(session_id), current_user.id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 

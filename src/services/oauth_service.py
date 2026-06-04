@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -179,7 +180,7 @@ class OAuthService:
         return user
 
     def _issue_tokens(self, user: User) -> dict:
-        access_token = create_access_token(str(user.id))
+        access_token = create_access_token(str(user.id), user.tier)
         plain_refresh, token_hash, expires_at = create_refresh_token()
 
         from src.models.user import RefreshToken
@@ -276,6 +277,7 @@ def _user_to_cache(user: User) -> dict:
         "id": str(user.id),
         "email": user.email,
         "display_name": user.display_name,
+        "tier": user.tier,
         "is_active": user.is_active,
         "is_verified": user.is_verified,
         "is_superuser": user.is_superuser,
