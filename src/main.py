@@ -127,19 +127,14 @@ def create_app() -> FastAPI:
 
     # Serve frontend static files (must be after API routes)
     import os as _os
-    frontend_dist = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "frontend", "dist")
+    frontend_dist = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "frontend", "dist", "browser")
     if _os.path.isdir(frontend_dist):
         app.mount("/assets", StaticFiles(directory=_os.path.join(frontend_dist, "assets")), name="frontend_assets")
 
-        @app.get("/favicon.svg", include_in_schema=False)
+        @app.get("/favicon.ico", include_in_schema=False)
         async def favicon():
             from fastapi.responses import FileResponse
-            return FileResponse(_os.path.join(frontend_dist, "favicon.svg"))
-
-        @app.get("/icons.svg", include_in_schema=False)
-        async def icons():
-            from fastapi.responses import FileResponse
-            return FileResponse(_os.path.join(frontend_dist, "icons.svg"))
+            return FileResponse(_os.path.join(frontend_dist, "favicon.ico"))
 
         @app.get("/{full_path:path}", include_in_schema=False)
         async def serve_frontend(full_path: str):
