@@ -1,15 +1,20 @@
 import { ApplicationConfig, LOCALE_ID, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withInterceptors, HttpClient } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { registerLocaleData } from '@angular/common';
 import localeZh from '@angular/common/locales/zh';
 import { MAT_DATE_LOCALE } from '@angular/material/core';
-import { provideTranslateService } from '@ngx-translate/core';
+import { provideTranslateService, TranslateLoader } from '@ngx-translate/core';
+import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
 
 registerLocaleData(localeZh);
+
+export function HttpLoaderFactory(http: HttpClient) {
+  return new TranslateHttpLoader(http, '/assets/locales/', '.json');
+}
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -19,6 +24,13 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor])),
     provideAnimations(),
-    provideTranslateService(),
+    provideTranslateService({
+      defaultLanguage: 'zh',
+      loader: {
+        provide: TranslateLoader,
+        useFactory: HttpLoaderFactory,
+        deps: [HttpClient],
+      },
+    }),
   ],
 };
