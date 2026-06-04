@@ -85,6 +85,22 @@ export class ApiService {
   qa(docId: string, data: Record<string, unknown>) {
     return this.http.post<ApiResponse<{ answer: string }>>(`${API_BASE}/documents/${docId}/ai/qa`, data);
   }
+  // Async AI (for large documents)
+  asyncProofread(docId: string, data: Record<string, unknown>) {
+    return this.http.post<ApiResponse<AsyncTaskResponse>>(`${API_BASE}/documents/${docId}/ai/async/proofread`, data);
+  }
+  asyncRewrite(docId: string, data: Record<string, unknown>) {
+    return this.http.post<ApiResponse<AsyncTaskResponse>>(`${API_BASE}/documents/${docId}/ai/async/rewrite`, data);
+  }
+  asyncSummarize(docId: string, data: Record<string, unknown>) {
+    return this.http.post<ApiResponse<AsyncTaskResponse>>(`${API_BASE}/documents/${docId}/ai/async/summarize`, data);
+  }
+  asyncExtract(docId: string, data: Record<string, unknown>) {
+    return this.http.post<ApiResponse<AsyncTaskResponse>>(`${API_BASE}/documents/${docId}/ai/async/extract`, data);
+  }
+  asyncConvert(docId: string, data: Record<string, unknown>) {
+    return this.http.post<ApiResponse<AsyncTaskResponse>>(`${API_BASE}/documents/${docId}/ai/async/convert`, data);
+  }
   taskStatus(docId: string, taskId: string) {
     return this.http.get<ApiResponse<TaskStatus>>(`${API_BASE}/documents/${docId}/ai/tasks/${taskId}`);
   }

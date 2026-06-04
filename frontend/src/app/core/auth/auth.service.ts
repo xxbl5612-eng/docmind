@@ -47,9 +47,7 @@ export class AuthService {
         if (res.success && res.data) {
           localStorage.setItem('access_token', res.data.access_token);
           localStorage.setItem('refresh_token', res.data.refresh_token);
-          if (res.data.user) {
-            this.currentUserSubject.next(res.data.user);
-          }
+          this.fetchCurrentUser();
         }
       })
     );
@@ -61,6 +59,7 @@ export class AuthService {
         if (res.success && res.data) {
           localStorage.setItem('access_token', res.data.access_token);
           localStorage.setItem('refresh_token', res.data.refresh_token);
+          this.fetchCurrentUser();
         }
       })
     );
