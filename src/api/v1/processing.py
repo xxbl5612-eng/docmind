@@ -59,7 +59,7 @@ async def ai_proofread(
         )
 
     result = await svc.proofread(doc, language=body.language, style_guide=body.style_guide)
-    await _log_operation(db, current_user.id, doc.id, "ai.proofread")
+    await _log_operation(db, cache, current_user, doc.id, "ai.proofread")
     return APIResponse(success=True, data=result.result)
 
 
@@ -81,7 +81,7 @@ async def ai_rewrite(
         )
 
     result = await svc.rewrite(doc, tone=body.tone, audience=body.audience, length=body.length, instructions=body.instructions)
-    await _log_operation(db, current_user.id, doc.id, "ai.rewrite")
+    await _log_operation(db, cache, current_user, doc.id, "ai.rewrite")
     return APIResponse(success=True, data=result.result)
 
 
@@ -102,7 +102,7 @@ async def ai_summarize(
         )
 
     result = await svc.summarize(doc, length=body.length, format_type=body.format, focus=body.focus)
-    await _log_operation(db, current_user.id, doc.id, "ai.summarize")
+    await _log_operation(db, cache, current_user, doc.id, "ai.summarize")
     return APIResponse(success=True, data=result.result)
 
 
@@ -123,7 +123,7 @@ async def ai_extract(
         )
 
     result = await svc.extract(doc, extract_type=body.extract_type, custom_schema=body.custom_schema)
-    await _log_operation(db, current_user.id, doc.id, "ai.extract")
+    await _log_operation(db, cache, current_user, doc.id, "ai.extract")
     return APIResponse(success=True, data=result.result)
 
 
@@ -144,7 +144,7 @@ async def ai_convert(
         )
 
     result = await svc.convert(doc, target_format=body.target_format, preserve_structure=body.preserve_structure)
-    await _log_operation(db, current_user.id, doc.id, "ai.convert")
+    await _log_operation(db, cache, current_user, doc.id, "ai.convert")
     return APIResponse(success=True, data=result.result)
 
 
@@ -159,7 +159,7 @@ async def ai_qa(
 ):
     svc = AIService(db, cache)
     result = await svc.qa(doc, question=body.question)
-    await _log_operation(db, current_user.id, doc.id, "ai.qa")
+    await _log_operation(db, cache, current_user, doc.id, "ai.qa")
     return APIResponse(success=True, data=result.result)
 
 
@@ -177,7 +177,7 @@ async def ai_async_proofread(
 ):
     svc = AIService(db, cache)
     job = await svc.dispatch_async(doc, current_user.id, "proofread", body.model_dump())
-    await _log_operation(db, current_user.id, doc.id, "ai.proofread.async")
+    await _log_operation(db, cache, current_user, doc.id, "ai.proofread.async")
     return APIResponse(
         success=True,
         data=AsyncTaskResponse(task_id=str(job.task_id), status="queued", message="Processing started"),
@@ -196,7 +196,7 @@ async def ai_async_rewrite(
 ):
     svc = AIService(db, cache)
     job = await svc.dispatch_async(doc, current_user.id, "rewrite", body.model_dump())
-    await _log_operation(db, current_user.id, doc.id, "ai.rewrite.async")
+    await _log_operation(db, cache, current_user, doc.id, "ai.rewrite.async")
     return APIResponse(
         success=True,
         data=AsyncTaskResponse(task_id=str(job.task_id), status="queued", message="Processing started"),
@@ -214,7 +214,7 @@ async def ai_async_summarize(
 ):
     svc = AIService(db, cache)
     job = await svc.dispatch_async(doc, current_user.id, "summarize", body.model_dump())
-    await _log_operation(db, current_user.id, doc.id, "ai.summarize.async")
+    await _log_operation(db, cache, current_user, doc.id, "ai.summarize.async")
     return APIResponse(
         success=True,
         data=AsyncTaskResponse(task_id=str(job.task_id), status="queued", message="Processing started"),
@@ -232,7 +232,7 @@ async def ai_async_extract(
 ):
     svc = AIService(db, cache)
     job = await svc.dispatch_async(doc, current_user.id, "extract", body.model_dump())
-    await _log_operation(db, current_user.id, doc.id, "ai.extract.async")
+    await _log_operation(db, cache, current_user, doc.id, "ai.extract.async")
     return APIResponse(
         success=True,
         data=AsyncTaskResponse(task_id=str(job.task_id), status="queued", message="Processing started"),
@@ -250,7 +250,7 @@ async def ai_async_convert(
 ):
     svc = AIService(db, cache)
     job = await svc.dispatch_async(doc, current_user.id, "convert", body.model_dump())
-    await _log_operation(db, current_user.id, doc.id, "ai.convert.async")
+    await _log_operation(db, cache, current_user, doc.id, "ai.convert.async")
     return APIResponse(
         success=True,
         data=AsyncTaskResponse(task_id=str(job.task_id), status="queued", message="Processing started"),
@@ -287,6 +287,12 @@ async def list_tasks(
     return APIResponse(success=True, data=[TaskStatusResponse.model_validate(j) for j in jobs])
 
 
-async def _log_operation(db: AsyncSession, user_id: uuid.UUID, doc_id: uuid.UUID, action: str) -> None:
+async def _log_operation(
+    db: AsyncSession, cache: CacheManager, current_user: User,
+    doc_id: uuid.UUID, action: str,
+) -> None:
+    from src.services.user_service import UserService
+    user_svc = UserService(db, cache)
+    await user_svc.increment_quota(current_user, "ai_calls")
     svc = OperationLogService(db)
-    await svc.log(user_id=user_id, document_id=doc_id, action=action, action_category="ai")
+    await svc.log(user_id=current_user.id, document_id=doc_id, action=action, action_category="ai")

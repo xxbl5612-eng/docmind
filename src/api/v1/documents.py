@@ -86,10 +86,11 @@ async def upload_document(
         details={"filename": file.filename, "format": doc.input_format, "size": doc.file_size_bytes},
     )
 
-    # Increment quota
+    # Increment quota (documents count + storage bytes)
     from src.services.user_service import UserService
     user_svc = UserService(db, cache)
     await user_svc.increment_quota(current_user, "documents")
+    await user_svc.increment_quota(current_user, "storage", doc.file_size_bytes)
 
     return APIResponse(success=True, data=DocumentResponse.model_validate(doc), message="Document uploaded")
 
@@ -157,10 +158,11 @@ async def delete_document(
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    # Decrement document quota
+    # Decrement document quota (documents count + storage bytes)
     from src.services.user_service import UserService
     user_svc = UserService(db, cache)
     await user_svc.decrement_quota(current_user, "documents")
+    await user_svc.decrement_quota(current_user, "storage", doc.file_size_bytes)
 
     log_svc = OperationLogService(db)
     await log_svc.log(

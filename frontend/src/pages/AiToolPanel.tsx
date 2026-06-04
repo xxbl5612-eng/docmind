@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { aiApi } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -82,6 +83,7 @@ interface Props {
 export default function AiToolPanel({ docId, doc, onClose }: Props) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [activeTool, setActiveTool] = useState<AiTool | null>(null);
   const [toolResult, setToolResult] = useState<string | null>(null);
   const [resultStats, setResultStats] = useState<Record<string, unknown> | null>(null);
@@ -109,6 +111,7 @@ export default function AiToolPanel({ docId, doc, onClose }: Props) {
             clearInterval(interval);
             setProcessing(false);
             if (res.data.status === 'completed') {
+              queryClient.invalidateQueries({ queryKey: ['usage'] });
               toast(t('editor.task_completed'), 'success');
               handleToolResult(res.data.result_summary);
             } else {
@@ -182,6 +185,7 @@ export default function AiToolPanel({ docId, doc, onClose }: Props) {
         const result = (res.data as ApiResponse<Record<string, unknown>>).data;
         handleToolResult(result);
         setProcessing(false);
+        queryClient.invalidateQueries({ queryKey: ['usage'] });
         toast(`${t(`editor.${activeTool}`)} ${t('editor.completed')}`, 'success');
       }
     } catch {
