@@ -102,7 +102,7 @@ class AuthService:
         stmt = select(RefreshToken).where(
             RefreshToken.token_hash == token_hash,
             RefreshToken.revoked_at.is_(None),
-            RefreshToken.expires_at > datetime.now(timezone.utc),
+            RefreshToken.expires_at > datetime.now(timezone.utc).replace(tzinfo=None),
         )
         result = await self.db.execute(stmt)
         token_record = result.scalar_one_or_none()
@@ -174,7 +174,7 @@ class AuthService:
         result = await self.db.execute(stmt)
         api_key_record = result.scalar_one_or_none()
 
-        if api_key_record and (api_key_record.expires_at is None or api_key_record.expires_at > datetime.now(timezone.utc)):
+        if api_key_record and (api_key_record.expires_at is None or api_key_record.expires_at > datetime.now(timezone.utc).replace(tzinfo=None)):
             # Update last used
             api_key_record.last_used_at = datetime.now(timezone.utc)
             await self.db.commit()

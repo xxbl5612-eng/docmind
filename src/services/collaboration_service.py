@@ -94,7 +94,7 @@ class CollaborationService:
 
         if invitation is None or invitation.status != "pending":
             return None
-        if invitation.expires_at < datetime.now(timezone.utc):
+        if invitation.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
             invitation.status = "expired"
             await self.db.commit()
             return None
