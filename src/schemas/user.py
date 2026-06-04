@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import date, datetime
 from typing import Any
 
@@ -26,8 +25,6 @@ class UserProfileResponse(BaseModel):
     @field_validator("id", mode="before")
     @classmethod
     def coerce_uuid(cls, v: Any) -> str:
-        if isinstance(v, uuid.UUID):
-            return str(v)
         return str(v)
 
 

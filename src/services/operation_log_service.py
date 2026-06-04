@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,10 +14,10 @@ class OperationLogService:
 
     async def log(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         action: str,
         action_category: str,
-        document_id: uuid.UUID | None = None,
+        document_id: str | None = None,
         details: dict | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
@@ -39,7 +37,7 @@ class OperationLogService:
         return op
 
     async def get_document_operations(
-        self, doc_id: uuid.UUID, page: int = 1, page_size: int = 50,
+        self, doc_id: str, page: int = 1, page_size: int = 50,
     ) -> tuple[list[OperationLog], int]:
         """Get operation history for a document."""
         stmt = select(OperationLog).where(OperationLog.document_id == doc_id)
@@ -53,7 +51,7 @@ class OperationLogService:
         return list(ops), total
 
     async def get_user_operations(
-        self, user_id: uuid.UUID, page: int = 1, page_size: int = 50,
+        self, user_id: str, page: int = 1, page_size: int = 50,
     ) -> tuple[list[OperationLog], int]:
         """Get operation history for a user."""
         stmt = select(OperationLog).where(OperationLog.user_id == user_id)

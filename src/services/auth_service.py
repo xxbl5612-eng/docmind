@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -153,7 +152,7 @@ class AuthService:
             token_record.revoked_at = datetime.now(timezone.utc)
             await self.db.commit()
 
-    async def get_user_by_id(self, user_id: uuid.UUID) -> User | None:
+    async def get_user_by_id(self, user_id: str) -> User | None:
         stmt = select(User).where(User.id == user_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
@@ -165,7 +164,7 @@ class AuthService:
         # Check cache first
         cached = await self.cache.get(KEY_API_KEY.format(key_hash=key_hash))
         if cached:
-            user = await self.get_user_by_id(uuid.UUID(cached["user_id"]))
+            user = await self.get_user_by_id(cached["user_id"])
             return user
 
         stmt = select(EnterpriseAPIKey).where(

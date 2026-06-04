@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import difflib
-import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,14 +18,14 @@ class VersionService:
         self.db = db
         self.cache = cache
 
-    async def list_versions(self, doc_id: uuid.UUID) -> list[DocumentVersion]:
+    async def list_versions(self, doc_id: str) -> list[DocumentVersion]:
         stmt = (select(DocumentVersion)
                 .where(DocumentVersion.document_id == doc_id)
                 .order_by(DocumentVersion.version_number.desc()))
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_version(self, doc_id: uuid.UUID, version_id: uuid.UUID) -> DocumentVersion | None:
+    async def get_version(self, doc_id: str, version_id: str) -> DocumentVersion | None:
         stmt = select(DocumentVersion).where(
             DocumentVersion.id == version_id,
             DocumentVersion.document_id == doc_id,
@@ -34,13 +33,13 @@ class VersionService:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_version_content(self, doc_id: uuid.UUID, version_id: uuid.UUID) -> str | None:
+    async def get_version_content(self, doc_id: str, version_id: str) -> str | None:
         version = await self.get_version(doc_id, version_id)
         if version is None:
             return None
         return download_text(version.content_path)
 
-    async def restore_version(self, doc_id: uuid.UUID, version_id: uuid.UUID, user_id: uuid.UUID) -> DocumentVersion | None:
+    async def restore_version(self, doc_id: str, version_id: str, user_id: str) -> DocumentVersion | None:
         """Restore document to a previous version (creates new version)."""
         old_version = await self.get_version(doc_id, version_id)
         if old_version is None:
@@ -83,7 +82,7 @@ class VersionService:
         await self.cache.invalidate_document(str(doc_id))
         return new_version
 
-    async def diff_versions(self, doc_id: uuid.UUID, ver_a: uuid.UUID, ver_b: uuid.UUID) -> dict | None:
+    async def diff_versions(self, doc_id: str, ver_a: str, ver_b: str) -> dict | None:
         """Generate a unified diff between two versions."""
         v_a = await self.get_version(doc_id, ver_a)
         v_b = await self.get_version(doc_id, ver_b)

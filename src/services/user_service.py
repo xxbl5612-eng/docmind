@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
-
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +15,7 @@ class UserService:
         self.db = db
         self.cache = cache
 
-    async def get_user(self, user_id: uuid.UUID) -> User | None:
+    async def get_user(self, user_id: str) -> User | None:
         cached = await self.cache.get(KEY_USER_PROFILE.format(user_id=str(user_id)))
         if cached:
             return _deserialize(cached)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import uuid
 from datetime import datetime, timezone
 
 from celery import chord, group
@@ -146,7 +145,7 @@ def _get_document(doc_id: str):
 
     engine = create_engine(settings.database_url_sync)
     with Session(engine) as session:
-        return session.execute(select(Document).where(Document.id == uuid.UUID(doc_id))).scalar_one_or_none()
+        return session.execute(select(Document).where(Document.id == doc_id)).scalar_one_or_none()
 
 
 def _update_job_status(job_id: str, status: str, **kwargs):
@@ -159,7 +158,7 @@ def _update_job_status(job_id: str, status: str, **kwargs):
 
     engine = create_engine(settings.database_url_sync)
     with Session(engine) as session:
-        stmt = update(AIProcessingJob).where(AIProcessingJob.id == uuid.UUID(job_id)).values(status=status, **kwargs)
+        stmt = update(AIProcessingJob).where(AIProcessingJob.id == job_id).values(status=status, **kwargs)
         session.execute(stmt)
         session.commit()
 

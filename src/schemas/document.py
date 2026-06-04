@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 from typing import Any
 
@@ -35,8 +34,6 @@ class DocumentResponse(BaseModel):
     def coerce_uuid(cls, v: Any) -> str | None:
         if v is None:
             return None
-        if isinstance(v, uuid.UUID):
-            return str(v)
         return str(v)
 
     @field_validator("tags", mode="before")

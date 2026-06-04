@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -267,7 +265,7 @@ async def get_task_status(
     cache: CacheManager = Depends(get_cache),
 ):
     svc = AIService(db, cache)
-    job = await svc.get_job_status(uuid.UUID(task_id))
+    job = await svc.get_job_status(task_id)
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
     if str(job.user_id) != str(current_user.id):
@@ -289,7 +287,7 @@ async def list_tasks(
 
 async def _log_operation(
     db: AsyncSession, cache: CacheManager, current_user: User,
-    doc_id: uuid.UUID, action: str,
+    doc_id: str, action: str,
 ) -> None:
     from src.services.user_service import UserService
     user_svc = UserService(db, cache)

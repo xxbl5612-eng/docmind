@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
@@ -35,7 +34,7 @@ class DocumentService:
 
     async def upload(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         filename: str,
         content: bytes,
         mime_type: str | None = None,
@@ -66,7 +65,7 @@ class DocumentService:
         await self.db.refresh(doc)
         return doc
 
-    async def save_parsed_content(self, doc_id: uuid.UUID, content: str) -> Document:
+    async def save_parsed_content(self, doc_id: str, content: str) -> Document:
         """Save parsed/cleaned content and create initial version."""
         doc = await self._get_doc(doc_id)
         if doc is None:
@@ -99,7 +98,7 @@ class DocumentService:
         await self.cache.invalidate_document(str(doc.id))
         return doc
 
-    async def get_document(self, doc_id: uuid.UUID, user_id: uuid.UUID) -> Document | None:
+    async def get_document(self, doc_id: str, user_id: str) -> Document | None:
         """Get document by ID with access check."""
         doc = await self._get_doc(doc_id)
         if doc is None or doc.is_deleted:
@@ -110,7 +109,7 @@ class DocumentService:
 
     async def list_documents(
         self,
-        user_id: uuid.UUID,
+        user_id: str,
         page: int = 1,
         page_size: int = 20,
         status: str | None = None,
@@ -136,7 +135,7 @@ class DocumentService:
 
         return list(docs), total
 
-    async def update_metadata(self, doc_id: uuid.UUID, user_id: uuid.UUID, data: dict) -> Document | None:
+    async def update_metadata(self, doc_id: str, user_id: str, data: dict) -> Document | None:
         doc = await self.get_document(doc_id, user_id)
         if doc is None:
             return None
@@ -151,7 +150,7 @@ class DocumentService:
         await self.cache.invalidate_document(str(doc_id))
         return doc
 
-    async def delete_document(self, doc_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    async def delete_document(self, doc_id: str, user_id: str) -> bool:
         """Soft delete a document."""
         doc = await self.get_document(doc_id, user_id)
         if doc is None:
@@ -163,7 +162,7 @@ class DocumentService:
         await self.cache.invalidate_document(str(doc_id))
         return True
 
-    async def get_content(self, doc_id: uuid.UUID, user_id: uuid.UUID) -> str | None:
+    async def get_content(self, doc_id: str, user_id: str) -> str | None:
         """Get parsed document content."""
         doc = await self.get_document(doc_id, user_id)
         if doc is None or doc.parsed_content_path is None:
@@ -183,8 +182,8 @@ class DocumentService:
 
     async def update_content(
         self,
-        doc_id: uuid.UUID,
-        user_id: uuid.UUID,
+        doc_id: str,
+        user_id: str,
         content: str,
         change_summary: str | None = None,
     ) -> DocumentVersion | None:
@@ -224,7 +223,7 @@ class DocumentService:
         await self.cache.invalidate_document(str(doc_id))
         return version
 
-    async def get_export_url(self, doc_id: uuid.UUID, user_id: uuid.UUID, target_format: str) -> str | None:
+    async def get_export_url(self, doc_id: str, user_id: str, target_format: str) -> str | None:
         """Get a presigned download URL for an exported document."""
         doc = await self.get_document(doc_id, user_id)
         if doc is None:
@@ -243,7 +242,7 @@ class DocumentService:
         except Exception:
             return None
 
-    async def _get_doc(self, doc_id: uuid.UUID) -> Document | None:
+    async def _get_doc(self, doc_id: str) -> Document | None:
         stmt = select(Document).where(Document.id == doc_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
