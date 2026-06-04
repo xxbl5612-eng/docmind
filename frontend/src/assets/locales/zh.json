@@ -79,7 +79,14 @@
     "step_2_title": "选择 AI 处理",
     "step_2_desc": "从校对、重写、摘要、提取等能力中选择。",
     "step_3_title": "查看与导出",
-    "step_3_desc": "查看处理结果，一键导出或分享给团队。"
+    "step_3_desc": "查看处理结果，一键导出或分享给团队。",
+    "trust_security": "企业级安全",
+    "trust_ai_speed": "AI 极速处理",
+    "trust_bilingual": "中英双语支持",
+    "stat_formats": "支持文件格式",
+    "stat_ai_tools": "AI 处理能力",
+    "stat_tiers": "用户分级体系",
+    "stat_uptime": "服务可用性"
   },
   "auth": {
     "welcome_back": "欢迎回来",
@@ -113,7 +120,23 @@
     "logged_in": "登录成功",
     "account_created": "账户创建成功！",
     "login_failed": "登录失败",
-    "register_failed": "注册失败"
+    "register_failed": "注册失败",
+    "login_brand": "智能文档处理，从此开始。",
+    "register_brand": "免费开始智能文档处理。",
+    "register_brand_desc": "创建您的账户，立即体验 AI 驱动的文档处理能力。无需信用卡。",
+    "email_required": "请输入邮箱地址",
+    "email_invalid": "请输入有效的邮箱地址",
+    "password_required": "请输入密码",
+    "name_required": "请输入您的名称",
+    "confirm_password": "确认密码",
+    "confirm_password_placeholder": "请再次输入密码",
+    "confirm_password_required": "请确认密码",
+    "password_mismatch": "两次输入的密码不一致",
+    "login_error_default": "登录失败，请检查您的凭据。",
+    "register_error_default": "注册失败，请稍后重试。",
+    "show_password": "显示密码",
+    "hide_password": "隐藏密码",
+    "register_success": "注册成功，请登录。"
   },
   "dashboard": {
     "title": "文档管理",

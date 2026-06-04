@@ -79,7 +79,14 @@
     "step_2_title": "Choose AI Processing",
     "step_2_desc": "Select from proofread, rewrite, summarize, extract and more.",
     "step_3_title": "Review & Export",
-    "step_3_desc": "Review results, export with one click or share with your team."
+    "step_3_desc": "Review results, export with one click or share with your team.",
+    "trust_security": "Enterprise Security",
+    "trust_ai_speed": "AI-Powered Processing",
+    "trust_bilingual": "Bilingual Support",
+    "stat_formats": "Supported Formats",
+    "stat_ai_tools": "AI Capabilities",
+    "stat_tiers": "User Tiers",
+    "stat_uptime": "Service Uptime"
   },
   "auth": {
     "welcome_back": "Welcome back",
@@ -113,7 +120,23 @@
     "logged_in": "Signed in successfully",
     "account_created": "Account created!",
     "login_failed": "Login failed",
-    "register_failed": "Registration failed"
+    "register_failed": "Registration failed",
+    "login_brand": "Smart document processing starts here.",
+    "register_brand": "Start smart document processing for free.",
+    "register_brand_desc": "Create your account and experience AI-powered document processing. No credit card required.",
+    "email_required": "Email is required",
+    "email_invalid": "Please enter a valid email",
+    "password_required": "Password is required",
+    "name_required": "Name is required",
+    "confirm_password": "Confirm Password",
+    "confirm_password_placeholder": "Re-enter your password",
+    "confirm_password_required": "Please confirm your password",
+    "password_mismatch": "Passwords do not match",
+    "login_error_default": "Login failed. Please check your credentials.",
+    "register_error_default": "Registration failed. Please try again later.",
+    "show_password": "Show password",
+    "hide_password": "Hide password",
+    "register_success": "Account created. Please sign in."
   },
   "dashboard": {
     "title": "Documents",

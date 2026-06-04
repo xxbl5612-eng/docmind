@@ -96,9 +96,9 @@ interface FeatureCard {
 
         <!-- Trust indicators -->
         <div class="mt-12 flex flex-wrap items-center justify-center gap-6 text-white/50 text-sm">
-          <div class="flex items-center gap-2"><mat-icon class="text-emerald-400 text-base" [inline]="true">lock</mat-icon> 企业级安全</div>
-          <div class="flex items-center gap-2"><mat-icon class="text-emerald-400 text-base" [inline]="true">speed</mat-icon> AI 极速处理</div>
-          <div class="flex items-center gap-2"><mat-icon class="text-emerald-400 text-base" [inline]="true">translate</mat-icon> 中英双语支持</div>
+          <div class="flex items-center gap-2"><mat-icon class="text-emerald-400 text-base" [inline]="true">lock</mat-icon> {{ 'landing.trust_security' | translate }}</div>
+          <div class="flex items-center gap-2"><mat-icon class="text-emerald-400 text-base" [inline]="true">speed</mat-icon> {{ 'landing.trust_ai_speed' | translate }}</div>
+          <div class="flex items-center gap-2"><mat-icon class="text-emerald-400 text-base" [inline]="true">translate</mat-icon> {{ 'landing.trust_bilingual' | translate }}</div>
         </div>
       </div>
     </section>
@@ -215,13 +215,16 @@ interface FeatureCard {
 })
 export class LandingComponent {
   auth = inject(AuthService);
+  translate = inject(TranslateService);
 
-  stats = [
-    { value: '10+', label: '支持文件格式' },
-    { value: '6', label: 'AI 处理能力' },
-    { value: '4', label: '用户分级体系' },
-    { value: '99.9%', label: '服务可用性' },
-  ];
+  get stats() {
+    return [
+      { value: '10+', label: this.translate.instant('landing.stat_formats') },
+      { value: '6', label: this.translate.instant('landing.stat_ai_tools') },
+      { value: '4', label: this.translate.instant('landing.stat_tiers') },
+      { value: '99.9%', label: this.translate.instant('landing.stat_uptime') },
+    ];
+  }
 
   features: FeatureCard[] = [
     { icon: 'psychology', titleKey: 'landing.feature_1_title', descKey: 'landing.feature_1_desc', color: '#2563EB' },

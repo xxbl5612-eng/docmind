@@ -8,6 +8,7 @@ import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatIcon } from '@angular/material/icon';
 import { TranslateModule, TranslatePipe } from '@ngx-translate/core';
+import { TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth/auth.service';
 
 function passwordMatchValidator(g: AbstractControl): ValidationErrors | null {
@@ -35,9 +36,9 @@ function passwordMatchValidator(g: AbstractControl): ValidationErrors | null {
             </div>
             <span class="text-2xl font-bold tracking-tight">DocMind</span>
           </div>
-          <h2 class="text-3xl font-bold mb-4 leading-tight">免费开始智能文档处理。</h2>
+          <h2 class="text-3xl font-bold mb-4 leading-tight">{{ 'auth.register_brand' | translate }}</h2>
           <p class="text-lg text-white/70 leading-relaxed">
-            创建您的账户，立即体验 AI 驱动的文档处理能力。无需信用卡。
+            {{ 'auth.register_brand_desc' | translate }}
           </p>
         </div>
       </div>
@@ -68,7 +69,7 @@ function passwordMatchValidator(g: AbstractControl): ValidationErrors | null {
                      autocomplete="name" />
               <mat-icon matSuffix class="text-gray-400">person</mat-icon>
               <mat-error *ngIf="registerForm.get('display_name')?.touched && registerForm.get('display_name')?.hasError('required')">
-                请输入您的名称
+                {{ 'auth.name_required' | translate }}
               </mat-error>
             </mat-form-field>
 
@@ -79,10 +80,10 @@ function passwordMatchValidator(g: AbstractControl): ValidationErrors | null {
                      autocomplete="email" />
               <mat-icon matSuffix class="text-gray-400">mail</mat-icon>
               <mat-error *ngIf="registerForm.get('email')?.touched && registerForm.get('email')?.hasError('required')">
-                请输入邮箱地址
+                {{ 'auth.email_required' | translate }}
               </mat-error>
               <mat-error *ngIf="registerForm.get('email')?.touched && registerForm.get('email')?.hasError('email')">
-                请输入有效的邮箱地址
+                {{ 'auth.email_invalid' | translate }}
               </mat-error>
             </mat-form-field>
 
@@ -94,12 +95,12 @@ function passwordMatchValidator(g: AbstractControl): ValidationErrors | null {
                      autocomplete="new-password" />
               <button mat-icon-button matSuffix type="button"
                       (click)="hidePassword = !hidePassword"
-                      [attr.aria-label]="hidePassword ? '显示密码' : '隐藏密码'"
+                      [attr.aria-label]="hidePassword ? ('auth.show_password' | translate) : ('auth.hide_password' | translate)"
                       class="!text-gray-400">
                 <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
               </button>
               <mat-error *ngIf="registerForm.get('password')?.touched && registerForm.get('password')?.hasError('required')">
-                请输入密码
+                {{ 'auth.password_required' | translate }}
               </mat-error>
               <mat-error *ngIf="registerForm.get('password')?.touched && registerForm.get('password')?.hasError('minlength')">
                 {{ 'auth.password_requirement' | translate }}
@@ -107,16 +108,16 @@ function passwordMatchValidator(g: AbstractControl): ValidationErrors | null {
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="w-full">
-              <mat-label>确认密码</mat-label>
+              <mat-label>{{ 'auth.confirm_password' | translate }}</mat-label>
               <input matInput type="password" formControlName="confirm_password"
-                     placeholder="请再次输入密码"
+                     [placeholder]="'auth.confirm_password_placeholder' | translate"
                      autocomplete="new-password" />
               <mat-icon matSuffix class="text-gray-400">lock</mat-icon>
               <mat-error *ngIf="registerForm.get('confirm_password')?.touched && registerForm.get('confirm_password')?.hasError('required')">
-                请确认密码
+                {{ 'auth.confirm_password_required' | translate }}
               </mat-error>
               <mat-error *ngIf="registerForm.get('confirm_password')?.touched && registerForm.hasError('mismatch')">
-                两次输入的密码不一致
+                {{ 'auth.password_mismatch' | translate }}
               </mat-error>
             </mat-form-field>
 
@@ -143,6 +144,7 @@ export class RegisterComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
   private fb = inject(FormBuilder);
+  private translate = inject(TranslateService);
 
   registerForm = this.fb.group({
     display_name: ['', [Validators.required]],
@@ -168,7 +170,7 @@ export class RegisterComponent {
       },
       error: (err) => {
         this.isLoading = false;
-        this.errorMessage = err?.error?.message || '注册失败，请稍后重试。';
+        this.errorMessage = err?.error?.message || this.translate.instant('auth.register_error_default');
       },
     });
   }

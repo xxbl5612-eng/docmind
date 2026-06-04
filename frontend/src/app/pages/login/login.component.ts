@@ -8,6 +8,7 @@ import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatIcon } from '@angular/material/icon';
 import { TranslateModule, TranslatePipe } from '@ngx-translate/core';
+import { TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
@@ -31,7 +32,7 @@ import { AuthService } from '../../core/auth/auth.service';
             </div>
             <span class="text-2xl font-bold tracking-tight">DocMind</span>
           </div>
-          <h2 class="text-3xl font-bold mb-4 leading-tight">智能文档处理，从此开始。</h2>
+          <h2 class="text-3xl font-bold mb-4 leading-tight">{{ 'auth.login_brand' | translate }}</h2>
           <p class="text-lg text-white/70 leading-relaxed">
             登录您的账户，体验 AI 驱动的文档校对、重写、摘要、提取和格式转换。
           </p>
@@ -68,10 +69,10 @@ import { AuthService } from '../../core/auth/auth.service';
                      autocomplete="email" />
               <mat-icon matSuffix class="text-gray-400">mail</mat-icon>
               <mat-error *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.hasError('required')">
-                请输入邮箱地址
+                {{ 'auth.email_required' | translate }}
               </mat-error>
               <mat-error *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.hasError('email')">
-                请输入有效的邮箱地址
+                {{ 'auth.email_invalid' | translate }}
               </mat-error>
             </mat-form-field>
 
@@ -83,12 +84,12 @@ import { AuthService } from '../../core/auth/auth.service';
                      autocomplete="current-password" />
               <button mat-icon-button matSuffix type="button"
                       (click)="hidePassword = !hidePassword"
-                      [attr.aria-label]="hidePassword ? '显示密码' : '隐藏密码'"
+                      [attr.aria-label]="hidePassword ? ('auth.show_password' | translate) : ('auth.hide_password' | translate)"
                       class="!text-gray-400">
                 <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
               </button>
               <mat-error *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.hasError('required')">
-                请输入密码
+                {{ 'auth.password_required' | translate }}
               </mat-error>
             </mat-form-field>
 
@@ -115,6 +116,7 @@ export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
   private fb = inject(FormBuilder);
+  private translate = inject(TranslateService);
 
   loginForm = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
@@ -138,7 +140,7 @@ export class LoginComponent {
       },
       error: (err) => {
         this.isLoading = false;
-        this.errorMessage = err?.error?.message || '登录失败，请检查您的凭据。';
+        this.errorMessage = err?.error?.message || this.translate.instant('auth.login_error_default');
       },
     });
   }
