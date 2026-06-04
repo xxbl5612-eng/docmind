@@ -22,7 +22,7 @@ import { CommonModule } from '@angular/common';
 })
 export class TextViewerComponent {
   @Input() content = '';
-  @Input() title = 'Document Content';
+  @Input() title = '文档内容';
   @Input() editable = false;
 
   get charCount(): number {
