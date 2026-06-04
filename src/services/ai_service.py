@@ -34,10 +34,24 @@ class AIService:
 
     # ── Sync operations (short documents) ──
 
+    async def _safe_run(self, coro, task_name: str) -> ProcessingResult:
+        try:
+            return await coro
+        except Exception as e:
+            import uuid as _uuid
+            logger = __import__('structlog').get_logger()
+            logger.error(f"ai_{task_name}_failed", error=str(e))
+            return ProcessingResult(
+                task_id=_uuid.uuid4().hex,
+                status="failed",
+                result=None,
+                error=f"{task_name} failed: {str(e)[:200]}",
+            )
+
     async def proofread(self, doc: Document, language: str = "auto", style_guide: str | None = None) -> ProcessingResult:
         content = await self._get_content(doc)
         cleaned = clean(content, doc.input_format)
-        return await process_proofread(cleaned.clean_text, language=language, style_guide=style_guide)
+        return await self._safe_run(process_proofread(cleaned.clean_text, language=language, style_guide=style_guide), "proofread")
 
     async def rewrite(
         self, doc: Document, tone: str = "professional", audience: str = "general",
@@ -45,30 +59,30 @@ class AIService:
     ) -> ProcessingResult:
         content = await self._get_content(doc)
         cleaned = clean(content, doc.input_format)
-        return await process_rewrite(cleaned.clean_text, tone=tone, audience=audience, length=length, instructions=instructions)
+        return await self._safe_run(process_rewrite(cleaned.clean_text, tone=tone, audience=audience, length=length, instructions=instructions), "rewrite")
 
     async def summarize(
         self, doc: Document, length: str = "medium", format_type: str = "paragraph", focus: str | None = None,
     ) -> ProcessingResult:
         content = await self._get_content(doc)
         cleaned = clean(content, doc.input_format)
-        return await process_summarize(cleaned.clean_text, length=length, format_type=format_type, focus=focus)
+        return await self._safe_run(process_summarize(cleaned.clean_text, length=length, format_type=format_type, focus=focus), "summarize")
 
     async def extract(
         self, doc: Document, extract_type: str = "entities", custom_schema: dict | None = None,
     ) -> ProcessingResult:
         content = await self._get_content(doc)
         cleaned = clean(content, doc.input_format)
-        return await process_extract(cleaned.clean_text, extract_type=extract_type, custom_schema=custom_schema)
+        return await self._safe_run(process_extract(cleaned.clean_text, extract_type=extract_type, custom_schema=custom_schema), "extract")
 
     async def convert(self, doc: Document, target_format: str, preserve_structure: bool = True) -> ProcessingResult:
         content = await self._get_content(doc)
         cleaned = clean(content, doc.input_format)
-        return await process_convert(cleaned.clean_text, target_format=target_format, preserve_structure=preserve_structure)
+        return await self._safe_run(process_convert(cleaned.clean_text, target_format=target_format, preserve_structure=preserve_structure), "convert")
 
     async def qa(self, doc: Document, question: str) -> ProcessingResult:
         content = await self._get_content(doc)
-        return await process_qa(question=question, context=content)
+        return await self._safe_run(process_qa(question=question, context=content), "qa")
 
     # ── Async operations (long documents) ──
 

@@ -60,7 +60,7 @@ async def ai_proofread(
 
     result = await svc.proofread(doc, language=body.language, style_guide=body.style_guide)
     await _log_operation(db, cache, current_user, doc.id, "ai.proofread")
-    return APIResponse(success=True, data=result.result)
+    return APIResponse(success=result.status == "completed", data=result.result, message=result.error)
 
 
 @router.post("/rewrite", response_model=APIResponse[dict])
@@ -82,7 +82,7 @@ async def ai_rewrite(
 
     result = await svc.rewrite(doc, tone=body.tone, audience=body.audience, length=body.length, instructions=body.instructions)
     await _log_operation(db, cache, current_user, doc.id, "ai.rewrite")
-    return APIResponse(success=True, data=result.result)
+    return APIResponse(success=result.status == "completed", data=result.result, message=result.error)
 
 
 @router.post("/summarize", response_model=APIResponse[dict])
@@ -103,7 +103,7 @@ async def ai_summarize(
 
     result = await svc.summarize(doc, length=body.length, format_type=body.format, focus=body.focus)
     await _log_operation(db, cache, current_user, doc.id, "ai.summarize")
-    return APIResponse(success=True, data=result.result)
+    return APIResponse(success=result.status == "completed", data=result.result, message=result.error)
 
 
 @router.post("/extract", response_model=APIResponse[dict])
@@ -124,7 +124,7 @@ async def ai_extract(
 
     result = await svc.extract(doc, extract_type=body.extract_type, custom_schema=body.custom_schema)
     await _log_operation(db, cache, current_user, doc.id, "ai.extract")
-    return APIResponse(success=True, data=result.result)
+    return APIResponse(success=result.status == "completed", data=result.result, message=result.error)
 
 
 @router.post("/convert", response_model=APIResponse[dict])
@@ -145,7 +145,7 @@ async def ai_convert(
 
     result = await svc.convert(doc, target_format=body.target_format, preserve_structure=body.preserve_structure)
     await _log_operation(db, cache, current_user, doc.id, "ai.convert")
-    return APIResponse(success=True, data=result.result)
+    return APIResponse(success=result.status == "completed", data=result.result, message=result.error)
 
 
 @router.post("/qa", response_model=APIResponse[dict])
