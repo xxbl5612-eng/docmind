@@ -43,3 +43,7 @@ Thumbs.db
 
 # ── Docker ──
 docker-compose.override.yml
+
+# Project deliverables (large files)
+DocMind_*.docx
+DocMind_*.pptx
