@@ -49,8 +49,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=mysql+asyncmy://docmind:docmind@mysql:3306/docmind
-      - DATABASE_URL_SYNC=mysql+mysqldb://docmind:docmind@mysql:3306/docmind
+      - DATABASE_URL=mysql+asyncmy://docmind:docmind@mysql:3306/docmind?charset=utf8mb4
+      - DATABASE_URL_SYNC=mysql+mysqldb://docmind:docmind@mysql:3306/docmind?charset=utf8mb4
       - REDIS_CACHE_URL=redis://redis:6379/0
       - REDIS_BROKER_URL=redis://redis:6379/1
       - REDIS_RESULT_BACKEND=redis://redis:6379/2
@@ -72,8 +72,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.worker
     environment:
-      - DATABASE_URL=mysql+asyncmy://docmind:docmind@mysql:3306/docmind
-      - DATABASE_URL_SYNC=mysql+mysqldb://docmind:docmind@mysql:3306/docmind
+      - DATABASE_URL=mysql+asyncmy://docmind:docmind@mysql:3306/docmind?charset=utf8mb4
+      - DATABASE_URL_SYNC=mysql+mysqldb://docmind:docmind@mysql:3306/docmind?charset=utf8mb4
       - REDIS_CACHE_URL=redis://redis:6379/0
       - REDIS_BROKER_URL=redis://redis:6379/1
       - REDIS_RESULT_BACKEND=redis://redis:6379/2

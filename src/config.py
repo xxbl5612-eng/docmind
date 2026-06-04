@@ -28,8 +28,8 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = "http://localhost:5173"  # comma-separated
 
     # ── Database ──
-    database_url: str = "mysql+asyncmy://docmind:docmind@localhost:3306/docmind"
-    database_url_sync: str = "mysql+mysqldb://docmind:docmind@localhost:3306/docmind"
+    database_url: str = "mysql+asyncmy://docmind:docmind@localhost:3306/docmind?charset=utf8mb4"
+    database_url_sync: str = "mysql+mysqldb://docmind:docmind@localhost:3306/docmind?charset=utf8mb4"
     sqlite_url: str = "sqlite+aiosqlite:///./docmind_dev.db"
 
     # ── Redis ──
