@@ -42,6 +42,9 @@ export class ApiService {
   myOperations(page = 1, page_size = 50) {
     return this.http.get<ApiResponse<OperationLog[]>>(`${API_BASE}/users/me/operations`, { params: { page, page_size } });
   }
+  recommendations() { return this.http.get<ApiResponse<any>>(`${API_BASE}/users/me/recommendations`); }
+  achievements() { return this.http.get<ApiResponse<any>>(`${API_BASE}/users/me/achievements`); }
+  pointsHistory() { return this.http.get<ApiResponse<any[]>>(`${API_BASE}/users/me/points-history`); }
 
   // ── Documents ──
   list(params?: { page?: number; page_size?: number; status_filter?: string; doc_type?: string }) {
