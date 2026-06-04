@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
     from src.api.deps import _engine
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    await _seed_tiers()
+
 
     # Try Redis ping if available
     try:
@@ -54,25 +54,6 @@ async def lifespan(app: FastAPI):
         logger.warning("redis close failed", exc_info=True)
 
 
-async def _seed_tiers() -> None:
-    """Seed default tier definitions if they don't exist."""
-    from sqlalchemy import select
-    from src.api.deps import _async_session_factory
-    from src.models.tier import TierDefinition
-
-    tiers = [
-        TierDefinition(name="novice", display_name="Novice", max_documents_per_month=10, max_ai_calls_per_month=20, max_storage_bytes=100_000_000, max_document_size_bytes=5_000_000, max_document_chars=50_000, max_file_types=["pdf","docx","txt","md","html","pptx","xlsx","csv"], supports_async_processing=False, supports_collaboration=False, supports_api_access=False, max_collaborators_per_doc=0, price_monthly_usd=0),
-        TierDefinition(name="white_collar", display_name="White-Collar", max_documents_per_month=50, max_ai_calls_per_month=100, max_storage_bytes=500_000_000, max_document_size_bytes=25_000_000, max_document_chars=200_000, max_file_types=["pdf","docx","txt","md","html","pptx","xlsx","csv","png","jpg"], supports_async_processing=True, supports_collaboration=True, supports_api_access=False, max_collaborators_per_doc=3, price_monthly_usd=9.99),
-        TierDefinition(name="professional", display_name="Professional", max_documents_per_month=200, max_ai_calls_per_month=500, max_storage_bytes=2_000_000_000, max_document_size_bytes=100_000_000, max_document_chars=None, max_file_types=["pdf","docx","txt","md","html","pptx","xlsx","csv","png","jpg"], supports_async_processing=True, supports_collaboration=True, supports_api_access=False, max_collaborators_per_doc=10, price_monthly_usd=29.99),
-        TierDefinition(name="enterprise", display_name="Enterprise", max_documents_per_month=2_147_483_647, max_ai_calls_per_month=2_147_483_647, max_storage_bytes=50_000_000_000, max_document_size_bytes=500_000_000, max_document_chars=None, max_file_types=["pdf","docx","txt","md","html","pptx","xlsx","csv","png","jpg"], supports_async_processing=True, supports_collaboration=True, supports_api_access=True, max_collaborators_per_doc=None, price_monthly_usd=99.99),
-    ]
-
-    async with _async_session_factory() as session:
-        result = await session.execute(select(TierDefinition))
-        existing = result.scalars().all()
-        if not existing:
-            session.add_all(tiers)
-            await session.commit()
 
 
 def create_app() -> FastAPI:

@@ -26,15 +26,16 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def create_access_token(user_id: str, tier: str, extra_claims: dict | None = None) -> str:
+def create_access_token(user_id: str, tier: str = "", extra_claims: dict | None = None) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
-        "tier": tier,
         "iat": now,
         "exp": now + timedelta(minutes=settings.jwt_access_token_expire_minutes),
         "jti": secrets.token_hex(16),
     }
+    if tier:
+        payload["tier"] = tier
     if extra_claims:
         payload.update(extra_claims)
     return jwt.encode(payload, settings.app_secret_key_value, algorithm=settings.jwt_algorithm)

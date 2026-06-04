@@ -10,13 +10,13 @@ import { Subject, takeUntil, finalize } from 'rxjs';
 import { ApiService } from '../../core/http/api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { FileIconComponent } from '../../shared/components/file-icon/file-icon.component';
-import type { Document, UsageData } from '../../shared/models/types';
+import type { Document } from '../../shared/models/types';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [
-    NgIf, NgFor, NgClass,
+    NgIf, NgFor,
     RouterLink,
     ReactiveFormsModule,
     MatButtonModule,
@@ -37,79 +37,6 @@ import type { Document, UsageData } from '../../shared/models/types';
           </a>
         </div>
       </div>
-
-      <!-- Usage Stats -->
-      <section *ngIf="usageData; else usageLoadingTpl" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <!-- Documents -->
-        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-sm font-medium text-gray-500">{{ 'dashboard.quota_documents' | translate }}</span>
-            <mat-icon class="text-blue-500">description</mat-icon>
-          </div>
-          <div class="flex items-baseline gap-1 mb-2">
-            <span class="text-2xl font-bold text-gray-900">{{ usageData.quota_used_docs }}</span>
-            <span class="text-sm text-gray-400">
-              / {{ getLimit(usageData.tier_limits, 'max_documents') }}
-            </span>
-          </div>
-          <div class="w-full bg-gray-100 rounded-full h-2">
-            <div class="h-2 rounded-full transition-all duration-300"
-              [style.width.%]="getPercentage(usageData.quota_used_docs, usageData.tier_limits['max_documents'])"
-              [ngClass]="getProgressColor(getPercentage(usageData.quota_used_docs, usageData.tier_limits['max_documents']))">
-            </div>
-          </div>
-        </div>
-
-        <!-- AI Calls -->
-        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-sm font-medium text-gray-500">{{ 'dashboard.quota_ai' | translate }}</span>
-            <mat-icon class="text-purple-500">psychology</mat-icon>
-          </div>
-          <div class="flex items-baseline gap-1 mb-2">
-            <span class="text-2xl font-bold text-gray-900">{{ usageData.quota_used_ai_calls }}</span>
-            <span class="text-sm text-gray-400">
-              / {{ getLimit(usageData.tier_limits, 'max_ai_calls') }}
-            </span>
-          </div>
-          <div class="w-full bg-gray-100 rounded-full h-2">
-            <div class="h-2 rounded-full transition-all duration-300"
-              [style.width.%]="getPercentage(usageData.quota_used_ai_calls, usageData.tier_limits['max_ai_calls'])"
-              [ngClass]="getProgressColor(getPercentage(usageData.quota_used_ai_calls, usageData.tier_limits['max_ai_calls']))">
-            </div>
-          </div>
-        </div>
-
-        <!-- Storage -->
-        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-sm font-medium text-gray-500">{{ 'dashboard.quota_storage' | translate }}</span>
-            <mat-icon class="text-green-500">cloud</mat-icon>
-          </div>
-          <div class="flex items-baseline gap-1 mb-2">
-            <span class="text-2xl font-bold text-gray-900">{{ formatSize(usageData.quota_used_storage_bytes) }}</span>
-            <span class="text-sm text-gray-400">
-              / {{ getStorageLimit(usageData.tier_limits) }}
-            </span>
-          </div>
-          <div class="w-full bg-gray-100 rounded-full h-2">
-            <div class="h-2 rounded-full transition-all duration-300"
-              [style.width.%]="getPercentage(usageData.quota_used_storage_bytes, usageData.tier_limits['max_storage_bytes'])"
-              [ngClass]="getProgressColor(getPercentage(usageData.quota_used_storage_bytes, usageData.tier_limits['max_storage_bytes']))">
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <ng-template #usageLoadingTpl>
-        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div *ngFor="let _ of [1,2,3]" class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm animate-pulse">
-            <div class="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
-            <div class="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
-            <div class="h-2 bg-gray-200 rounded w-full"></div>
-          </div>
-        </section>
-      </ng-template>
 
       <!-- Upload Zone -->
       <section
@@ -308,9 +235,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private auth = inject(AuthService);
   private destroy$ = new Subject<void>();
 
-  // Usage stats
-  usageData: UsageData | null = null;
-
   // Documents
   documents: Document[] = [];
   total = 0;
@@ -332,29 +256,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    this.loadUsage();
     this.loadDocuments();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-  }
-
-  // ---------- Usage ----------
-  loadUsage(): void {
-    this.api.usage()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (res) => {
-          if (res.success && res.data) {
-            this.usageData = res.data;
-          }
-        },
-        error: () => {
-          // Non-critical; silently ignore
-        },
-      });
   }
 
   // ---------- Documents ----------
@@ -402,7 +309,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
             } else {
               this.loadDocuments();
             }
-            this.loadUsage();
           }
         },
         error: (err) => {
@@ -459,7 +365,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
           if (res.success) {
             this.uploadSuccess = true;
             this.loadDocuments();
-            this.loadUsage();
             setTimeout(() => this.uploadSuccess = false, 3000);
           } else {
             this.uploadError = res.message || 'Upload failed';
@@ -472,27 +377,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   // ---------- Helpers ----------
-  getPercentage(used: number, limit: number | undefined): number {
-    if (!limit || limit <= 0) return 0;
-    return Math.min((used / limit) * 100, 100);
-  }
-
-  getLimit(limits: Record<string, number>, key: string): string {
-    const val = limits[key];
-    return val != null ? String(val) : 'No limit';
-  }
-
-  getStorageLimit(limits: Record<string, number>): string {
-    const val = limits['max_storage_bytes'];
-    return val != null ? this.formatSize(val) : 'No limit';
-  }
-
-  getProgressColor(pct: number): string {
-    if (pct >= 100) return 'bg-red-500';
-    if (pct >= 80) return 'bg-yellow-500';
-    return 'bg-blue-500';
-  }
-
   formatSize(bytes: number): string {
     if (!bytes || bytes === 0) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];

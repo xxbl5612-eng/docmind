@@ -1,9 +1,9 @@
 """User and RefreshToken models."""
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, CHAR, Date, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, CHAR, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import UUIDMixin, TimestampMixin, Base as _Base
@@ -16,16 +16,10 @@ class User(_Base, UUIDMixin, TimestampMixin):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str] = mapped_column(String(128), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    tier: Mapped[str] = mapped_column(String(32), nullable=False, default="novice")
-    tier_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_superuser: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     preferences: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    quota_used_docs: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    quota_used_ai_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    quota_used_storage_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    quota_period_start: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     refresh_tokens = relationship("RefreshToken", back_populates="user")

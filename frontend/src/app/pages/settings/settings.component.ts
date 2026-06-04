@@ -13,7 +13,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subject, takeUntil, finalize } from 'rxjs';
 import { ApiService } from '../../core/http/api.service';
 import { AuthService } from '../../core/auth/auth.service';
-import type { UsageData, OAuthAccount } from '../../shared/models/types';
+import type { OAuthAccount } from '../../shared/models/types';
 
 @Component({
   selector: 'app-settings',
@@ -81,95 +81,6 @@ import type { UsageData, OAuthAccount } from '../../shared/models/types';
                 <span *ngIf="profileError" class="text-sm text-red-600">{{ profileError }}</span>
               </div>
             </form>
-          </div>
-        </mat-tab>
-
-        <!-- ==================== Tier Tab ==================== -->
-        <mat-tab [label]="'settings.plan' | translate">
-          <div class="py-6 space-y-6">
-            <!-- Current Tier Card -->
-            <mat-card class="!bg-white !border !border-gray-200 !shadow-sm">
-              <mat-card-header>
-                <mat-card-title class="text-lg font-semibold">
-                  {{ 'settings.current_plan' | translate }}: {{ currentTier | translate }}
-                </mat-card-title>
-              </mat-card-header>
-              <mat-card-content class="!pt-4">
-                <div *ngIf="usageData; else usageSkeleton" class="space-y-4">
-                  <!-- Documents -->
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <span class="text-gray-600">{{ 'dashboard.quota_documents' | translate }}</span>
-                      <span class="text-gray-800 font-medium">
-                        {{ usageData.quota_used_docs }} / {{ getLimit(usageData.tier_limits, 'max_documents') }}
-                      </span>
-                    </div>
-                    <div class="w-full bg-gray-100 rounded-full h-2">
-                      <div class="h-2 rounded-full bg-blue-500"
-                        [style.width.%]="getPercentage(usageData.quota_used_docs, usageData.tier_limits['max_documents'])">
-                      </div>
-                    </div>
-                  </div>
-                  <!-- AI Calls -->
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <span class="text-gray-600">{{ 'dashboard.quota_ai' | translate }}</span>
-                      <span class="text-gray-800 font-medium">
-                        {{ usageData.quota_used_ai_calls }} / {{ getLimit(usageData.tier_limits, 'max_ai_calls') }}
-                      </span>
-                    </div>
-                    <div class="w-full bg-gray-100 rounded-full h-2">
-                      <div class="h-2 rounded-full bg-purple-500"
-                        [style.width.%]="getPercentage(usageData.quota_used_ai_calls, usageData.tier_limits['max_ai_calls'])">
-                      </div>
-                    </div>
-                  </div>
-                  <!-- Storage -->
-                  <div>
-                    <div class="flex justify-between text-sm mb-1">
-                      <span class="text-gray-600">{{ 'dashboard.quota_storage' | translate }}</span>
-                      <span class="text-gray-800 font-medium">
-                        {{ formatSize(usageData.quota_used_storage_bytes) }} / {{ formatLimitSize(usageData.tier_limits, 'max_storage_bytes') }}
-                      </span>
-                    </div>
-                    <div class="w-full bg-gray-100 rounded-full h-2">
-                      <div class="h-2 rounded-full bg-green-500"
-                        [style.width.%]="getPercentage(usageData.quota_used_storage_bytes, usageData.tier_limits['max_storage_bytes'])">
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <ng-template #usageSkeleton>
-                  <div class="animate-pulse space-y-3">
-                    <div *ngFor="let _ of [1,2,3]" class="h-4 bg-gray-200 rounded"></div>
-                  </div>
-                </ng-template>
-              </mat-card-content>
-            </mat-card>
-
-            <!-- Upgrade -->
-            <mat-card class="!bg-white !border !border-gray-200 !shadow-sm">
-              <mat-card-header>
-                <mat-card-title class="text-lg font-semibold">Upgrade Tier</mat-card-title>
-              </mat-card-header>
-              <mat-card-content class="!pt-4 space-y-4">
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <button *ngFor="let tier of availableTiers"
-                    mat-stroked-button
-                    [color]="currentTier === tier.value ? 'primary' : undefined"
-                    [disabled]="currentTier === tier.value || upgradeLoading"
-                    (click)="upgradeTier(tier.value)"
-                    class="py-6 !flex !flex-col !items-center !gap-1 h-auto">
-                    <mat-icon>{{ tier.icon }}</mat-icon>
-                    <span class="text-sm font-medium">{{ tier.label }}</span>
-                  </button>
-                </div>
-                <div *ngIf="upgradeError" class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{{ upgradeError }}</div>
-                <div *ngIf="upgradeSuccess" class="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2">
-                  {{ 'settings.upgraded' | translate }} {{ upgradeSuccess }}
-                </div>
-              </mat-card-content>
-            </mat-card>
           </div>
         </mat-tab>
 
@@ -285,20 +196,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
   profileUpdated = false;
   profileError: string | null = null;
 
-  // Tier & Usage
-  currentTier = '';
-  usageData: UsageData | null = null;
-  upgradeLoading = false;
-  upgradeError: string | null = null;
-  upgradeSuccess: string | null = null;
-
-  availableTiers = [
-    { value: 'novice', label: 'Novice', icon: 'star_outline' },
-    { value: 'white_collar', label: 'White-Collar', icon: 'star_half' },
-    { value: 'professional', label: 'Professional', icon: 'star' },
-    { value: 'enterprise', label: 'Enterprise', icon: 'diamond' },
-  ];
-
   // GitHub / OAuth
   oauthAccounts: OAuthAccount[] = [];
   accountsLoading = false;
@@ -329,14 +226,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private loadInitialData(): void {
     const user = this.auth.currentUser;
     if (user) {
-      this.currentTier = user.tier || 'novice';
       this.profileForm.patchValue({
         display_name: user.display_name || '',
         avatar_url: user.avatar_url || '',
       }, { emitEvent: false });
     }
 
-    this.loadUsage();
     this.loadOAuthAccounts();
     this.loading = false;
   }
@@ -375,55 +270,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.profileError = err?.error?.message || 'Failed to update profile';
-        },
-      });
-  }
-
-  // ---------- Usage & Tier ----------
-  loadUsage(): void {
-    this.api.usage()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (res) => {
-          if (res.success && res.data) {
-            this.usageData = res.data;
-            this.currentTier = res.data.tier || this.currentTier;
-          }
-        },
-        error: () => {
-          // Non-critical
-        },
-      });
-  }
-
-  upgradeTier(targetTier: string): void {
-    if (this.upgradeLoading || targetTier === this.currentTier) return;
-    this.upgradeLoading = true;
-    this.upgradeError = null;
-    this.upgradeSuccess = null;
-
-    this.api.upgradeTier(targetTier)
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => this.upgradeLoading = false)
-      )
-      .subscribe({
-        next: (res) => {
-          if (res.success) {
-            this.upgradeSuccess = targetTier;
-            this.currentTier = targetTier;
-            this.loadUsage();
-            this.snackBar.open(
-              this.translate.instant('settings.upgraded') + ' ' + targetTier,
-              this.translate.instant('common.close') || 'Close',
-              { duration: 3000 }
-            );
-          } else {
-            this.upgradeError = res.message || 'Upgrade failed';
-          }
-        },
-        error: (err) => {
-          this.upgradeError = err?.error?.message || 'Upgrade failed';
         },
       });
   }
@@ -515,33 +361,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
   }
 
   // ---------- Helpers ----------
-  getPercentage(used: number, limit: number | undefined): number {
-    if (!limit || limit <= 0) return 0;
-    return Math.min((used / limit) * 100, 100);
-  }
-
-  getLimit(limits: Record<string, number>, key: string): string {
-    const val = limits[key];
-    return val != null ? String(val) : 'No limit';
-  }
-
-  formatSize(bytes: number): string {
-    if (!bytes || bytes === 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    let i = 0;
-    let n = bytes;
-    while (n >= 1024 && i < units.length - 1) {
-      n /= 1024;
-      i++;
-    }
-    return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-  }
-
-  formatLimitSize(limits: Record<string, number>, key: string): string {
-    const val = limits[key];
-    return val != null ? this.formatSize(val) : 'No limit';
-  }
-
   formatDate(dateStr: string): string {
     if (!dateStr) return '';
     const d = new Date(dateStr);

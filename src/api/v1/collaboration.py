@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_cache, get_current_active_user, get_db, require_document_access, require_tier
+from src.api.deps import get_cache, get_current_active_user, get_db, require_document_access
 from src.core.cache import CacheManager
 from src.models.user import User
 from src.schemas.collaboration import (
@@ -28,7 +28,6 @@ async def create_session(
     body: CreateSessionRequest,
     doc = Depends(require_document_access("edit")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_tier("white_collar")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):

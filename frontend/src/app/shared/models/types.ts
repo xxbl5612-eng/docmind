@@ -3,8 +3,6 @@ export interface User {
   email: string;
   display_name: string;
   avatar_url: string | null;
-  tier: string;
-  tier_expires_at: string | null;
   is_verified: boolean;
   is_superuser: boolean;
   preferences: Record<string, unknown> | null;
@@ -137,15 +135,6 @@ export interface TaskStatus {
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
-}
-
-export interface UsageData {
-  tier: string;
-  quota_used_docs: number;
-  quota_used_ai_calls: number;
-  quota_used_storage_bytes: number;
-  quota_period_start: string;
-  tier_limits: Record<string, number>;
 }
 
 export interface AdminStats {

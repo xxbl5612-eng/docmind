@@ -5,7 +5,7 @@ import type {
   ApiResponse, Document, DocumentContent, DocumentListResponse,
   Version, VersionListResponse, VersionContent, DiffResponse,
   CollaborationSession, Invitation, AsyncTaskResponse, TaskStatus,
-  UsageData, AdminStats, User, TokenResponse, OperationLog,
+  AdminStats, User, TokenResponse, OperationLog,
   GitHubRepo, GitHubContent, OAuthAccount, GitHubRateLimit,
   SlidesResponse
 } from '../../shared/models/types';
@@ -34,10 +34,6 @@ export class ApiService {
   me() { return this.http.get<ApiResponse<User>>(`${API_BASE}/users/me`); }
   updateMe(data: { display_name?: string; avatar_url?: string; preferences?: Record<string, unknown> }) {
     return this.http.patch<ApiResponse<User>>(`${API_BASE}/users/me`, data);
-  }
-  usage() { return this.http.get<ApiResponse<UsageData>>(`${API_BASE}/users/me/usage`); }
-  upgradeTier(target_tier: string) {
-    return this.http.put<ApiResponse<null>>(`${API_BASE}/users/me/tier`, { target_tier });
   }
   myOperations(page = 1, page_size = 50) {
     return this.http.get<ApiResponse<OperationLog[]>>(`${API_BASE}/users/me/operations`, { params: { page, page_size } });

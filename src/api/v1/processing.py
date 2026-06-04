@@ -10,8 +10,6 @@ from src.api.deps import (
     get_current_active_user,
     get_db,
     require_document_access,
-    require_quota,
-    require_tier,
 )
 from src.core.cache import CacheManager
 from src.models.document import Document
@@ -44,8 +42,6 @@ async def ai_proofread(
     body: ProofreadRequest,
     doc: Document = Depends(require_document_access("edit")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_tier("white_collar")),
-    _q: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -66,8 +62,6 @@ async def ai_rewrite(
     body: RewriteRequest,
     doc: Document = Depends(require_document_access("edit")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_tier("white_collar")),
-    _q: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -88,7 +82,6 @@ async def ai_summarize(
     body: SummarizeRequest,
     doc: Document = Depends(require_document_access("view")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -109,7 +102,6 @@ async def ai_extract(
     body: ExtractRequest,
     doc: Document = Depends(require_document_access("view")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -130,7 +122,6 @@ async def ai_convert(
     body: ConvertRequest,
     doc: Document = Depends(require_document_access("view")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -151,7 +142,6 @@ async def ai_qa(
     body: QARequest,
     doc: Document = Depends(require_document_access("view")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -168,8 +158,6 @@ async def ai_async_proofread(
     body: ProofreadRequest,
     doc: Document = Depends(require_document_access("edit")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_tier("white_collar")),
-    _q: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -187,8 +175,6 @@ async def ai_async_rewrite(
     body: RewriteRequest,
     doc: Document = Depends(require_document_access("edit")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_tier("white_collar")),
-    _q: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -206,7 +192,6 @@ async def ai_async_summarize(
     body: SummarizeRequest,
     doc: Document = Depends(require_document_access("view")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -224,7 +209,6 @@ async def ai_async_extract(
     body: ExtractRequest,
     doc: Document = Depends(require_document_access("view")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -242,7 +226,6 @@ async def ai_async_convert(
     body: ConvertRequest,
     doc: Document = Depends(require_document_access("view")),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -289,8 +272,5 @@ async def _log_operation(
     db: AsyncSession, cache: CacheManager, current_user: User,
     doc_id: str, action: str,
 ) -> None:
-    from src.services.user_service import UserService
-    user_svc = UserService(db, cache)
-    await user_svc.increment_quota(current_user, "ai_calls")
     svc = OperationLogService(db)
     await svc.log(user_id=current_user.id, document_id=doc_id, action=action, action_category="ai")

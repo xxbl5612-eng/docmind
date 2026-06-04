@@ -87,23 +87,6 @@ async def get_current_active_user(
     return current_user
 
 
-def require_tier(min_tier: str):
-    """Dependency factory: require minimum tier level."""
-    tiers = {"novice": 0, "white_collar": 1, "professional": 2, "enterprise": 3}
-
-    async def dependency(current_user: User = Depends(get_current_active_user)) -> User:
-        user_level = tiers.get(current_user.tier, 0)
-        required_level = tiers.get(min_tier, 0)
-        if user_level < required_level:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"This feature requires at least {min_tier} tier",
-            )
-        return current_user
-
-    return dependency
-
-
 def require_document_access(permission: str = "view"):
     """Dependency factory: verify document access (owner or collaborator)."""
     from sqlalchemy import select
@@ -143,25 +126,6 @@ def require_document_access(permission: str = "view"):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You only have comment access")
 
         return doc
-
-    return dependency
-
-
-def require_quota(resource: str):
-    """Dependency factory: check user has remaining quota."""
-    async def dependency(
-        current_user: User = Depends(get_current_active_user),
-        db: AsyncSession = Depends(get_db),
-        cache: CacheManager = Depends(get_cache),
-    ) -> User:
-        svc = UserService(db, cache)
-        ok = await svc.check_quota(current_user, resource)
-        if not ok:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"You have exhausted your {resource} quota for this period",
-            )
-        return current_user
 
     return dependency
 

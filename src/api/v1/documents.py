@@ -10,8 +10,6 @@ from src.api.deps import (
     get_current_active_user,
     get_db,
     require_document_access,
-    require_quota,
-    require_tier,
 )
 from src.config import settings
 from src.core.cache import CacheManager
@@ -40,7 +38,6 @@ async def upload_document(
     file: UploadFile = File(...),
     folder: str = Form(default=""),
     current_user: User = Depends(get_current_active_user),
-    _: User = Depends(require_quota("documents")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
@@ -83,12 +80,6 @@ async def upload_document(
         action_category="document",
         details={"filename": file.filename, "format": doc.input_format, "size": doc.file_size_bytes},
     )
-
-    # Increment quota (documents count + storage bytes)
-    from src.services.user_service import UserService
-    user_svc = UserService(db, cache)
-    await user_svc.increment_quota(current_user, "documents")
-    await user_svc.increment_quota(current_user, "storage", doc.file_size_bytes)
 
     return APIResponse(success=True, data=DocumentResponse.model_validate(doc), message="Document uploaded")
 
@@ -156,12 +147,6 @@ async def delete_document(
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    # Decrement document quota (documents count + storage bytes)
-    from src.services.user_service import UserService
-    user_svc = UserService(db, cache)
-    await user_svc.decrement_quota(current_user, "documents")
-    await user_svc.decrement_quota(current_user, "storage", doc.file_size_bytes)
-
     log_svc = OperationLogService(db)
     await log_svc.log(
         user_id=current_user.id,
@@ -226,7 +211,6 @@ async def update_content(
 async def export_document(
     body: ExportRequest,
     doc = Depends(require_document_access("view")),
-    _: User = Depends(require_quota("ai_calls")),
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
