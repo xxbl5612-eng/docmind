@@ -158,7 +158,14 @@
     "deleted": "文档已删除",
     "delete_confirm": "确定删除此文档吗？",
     "no_limit": "无限制",
-    "import_from_github": "从 GitHub 导入"
+    "import_from_github": "从 GitHub 导入",
+    "welcome": "欢迎回来",
+    "name": "名称",
+    "format": "格式",
+    "status": "状态",
+    "size": "大小",
+    "date": "日期",
+    "actions": "操作"
   },
   "editor": {
     "ai_tools": "AI 工具",

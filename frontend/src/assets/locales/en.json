@@ -158,7 +158,14 @@
     "deleted": "Document deleted",
     "delete_confirm": "Delete this document?",
     "no_limit": "Unlimited",
-    "import_from_github": "Import from GitHub"
+    "import_from_github": "Import from GitHub",
+    "welcome": "Welcome back",
+    "name": "Name",
+    "format": "Format",
+    "status": "Status",
+    "size": "Size",
+    "date": "Date",
+    "actions": "Actions"
   },
   "editor": {
     "ai_tools": "AI Tools",
