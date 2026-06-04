@@ -66,7 +66,20 @@
     ],
     "cta_title": "Ready to Transform Your Documents?",
     "cta_desc": "Join thousands of professionals who trust DocMind for intelligent document processing.",
-    "cta_button": "Get Started Free"
+    "cta_button": "Get Started Free",
+    "features_badge": "Core Capabilities",
+    "feature_5_title": "GitHub Integration",
+    "feature_5_desc": "OAuth login with GitHub, browse repositories and import documents directly.",
+    "feature_6_title": "Async Processing",
+    "feature_6_desc": "Celery distributed task queue for large documents with real-time progress feedback.",
+    "how_title": "Get Started in 3 Steps",
+    "how_desc": "No complex setup required. Start your intelligent document processing journey quickly.",
+    "step_1_title": "Upload Document",
+    "step_1_desc": "Drag & drop or click to upload documents in any format.",
+    "step_2_title": "Choose AI Processing",
+    "step_2_desc": "Select from proofread, rewrite, summarize, extract and more.",
+    "step_3_title": "Review & Export",
+    "step_3_desc": "Review results, export with one click or share with your team."
   },
   "auth": {
     "welcome_back": "Welcome back",

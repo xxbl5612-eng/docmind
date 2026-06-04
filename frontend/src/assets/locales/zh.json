@@ -66,7 +66,20 @@
     ],
     "cta_title": "准备好革新您的文档处理方式了吗？",
     "cta_desc": "加入数千名专业人士的行列，使用 DocMind 进行智能文档处理。",
-    "cta_button": "免费开始使用"
+    "cta_button": "免费开始使用",
+    "features_badge": "核心能力",
+    "feature_5_title": "GitHub 集成",
+    "feature_5_desc": "支持 GitHub OAuth 登录，直接浏览仓库并导入文档文件。",
+    "feature_6_title": "异步处理",
+    "feature_6_desc": "Celery 分布式任务队列处理大文档，实时反馈处理进度。",
+    "how_title": "三步开始使用",
+    "how_desc": "无需复杂配置，快速开启智能文档处理之旅。",
+    "step_1_title": "上传文档",
+    "step_1_desc": "拖拽或点击上传任意格式的文档文件。",
+    "step_2_title": "选择 AI 处理",
+    "step_2_desc": "从校对、重写、摘要、提取等能力中选择。",
+    "step_3_title": "查看与导出",
+    "step_3_desc": "查看处理结果，一键导出或分享给团队。"
   },
   "auth": {
     "welcome_back": "欢迎回来",
