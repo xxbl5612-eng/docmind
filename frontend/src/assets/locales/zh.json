@@ -158,6 +158,7 @@
     "deleted": "文档已删除",
     "delete_confirm": "确定删除此文档吗？",
     "no_limit": "无限制",
+    "upload": "上传",
     "import_from_github": "从 GitHub 导入",
     "welcome": "欢迎回来",
     "name": "名称",

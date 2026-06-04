@@ -158,6 +158,7 @@
     "deleted": "Document deleted",
     "delete_confirm": "Delete this document?",
     "no_limit": "Unlimited",
+    "upload": "Upload",
     "import_from_github": "Import from GitHub",
     "welcome": "Welcome back",
     "name": "Name",
