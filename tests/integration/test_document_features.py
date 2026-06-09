@@ -34,7 +34,9 @@ def _create_test_docx() -> io.BytesIO:
             '<w:body>'
             '<w:p><w:r><w:t>智能文档处理助手项目规划书</w:t></w:r></w:p>'
             '<w:p><w:r><w:t>本项目旨在通过完整开发实践AGI全栈技术。文档处理系统支持上传、解析、校对和总结功能。</w:t></w:r></w:p>'
-            '<w:p><w:r><w:t>技术方案采用FastAPI后端、React前端、DeepSeek AI和PostgreSQL数据库。</w:t></w:r></w:p>'
+            '<w:p><w:r><w:t>技术方案采用FastAPI后端、React前端、DeepSeek AI和PostgreSQL数据库。系统支持多格式文档解析、AI智能校对、语义搜索和实时协作功能。</w:t></w:r></w:p>'
+            '<w:p><w:r><w:t>本文档详细描述了智能文档处理平台的核心架构设计、技术选型方案以及项目实施计划。平台采用微服务架构，前后端分离，通过RESTful API进行通信。</w:t></w:r></w:p>'
+            '<w:p><w:r><w:t>在AI能力方面，平台集成了自然语言处理、语义理解、文本生成等多项技术，能够为用户提供全方位的文档处理解决方案。</w:t></w:r></w:p>'
             '</w:body>'
             '</w:document>'
         ))

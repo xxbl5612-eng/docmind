@@ -360,8 +360,8 @@ startxref
 420
 %%EOF"""
             pn_reader = PdfReader(io.BytesIO(pn_bytes.encode()))
-            page.merge_page(pn_reader.pages[0])
-            writer.add_page(page)
+            writer.add_page(page)  # attach to writer before merge
+            writer.pages[i].merge_page(pn_reader.pages[0])
 
         out = io.BytesIO()
         writer.write(out)

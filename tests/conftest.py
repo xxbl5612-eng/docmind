@@ -71,3 +71,11 @@ async def auth_headers(async_client: AsyncClient) -> dict:
     data = resp.json()
     token = data["data"]["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def preload_embedding_model():
+    """Pre-load the embedding model once per session to avoid per-test timeout."""
+    from src.ai.semantic_search import _get_embedding_model
+    import asyncio
+    await asyncio.to_thread(_get_embedding_model)
