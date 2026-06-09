@@ -291,7 +291,7 @@ def hybrid_search(
     return results[:top_k or settings.search_top_k]
 
 
-def cross_document_search(
+async def cross_document_search(
     query: str,
     user_id: str,
     top_k_per_doc: int = 5,
@@ -304,7 +304,7 @@ def cross_document_search(
         return []
 
     from src.services.search_service import list_user_indexes, load_index
-    doc_indexes = list_user_indexes(user_id)
+    doc_indexes = await list_user_indexes(user_id)
     if not doc_indexes:
         return []
 

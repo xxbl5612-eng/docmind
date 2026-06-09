@@ -99,13 +99,12 @@ def delete_index(doc_id: str) -> None:
             p.unlink(missing_ok=True)
 
 
-def list_user_indexes(user_id: str) -> list[tuple[str, str]]:
+async def list_user_indexes(user_id: str) -> list[tuple[str, str]]:
     """Return list of (doc_id, doc_title) for all indexed documents owned by user.
 
     Looks up document ownership from the database, filtering to only those
     that have a search index on disk.
     """
-    import asyncio
     from uuid import UUID
 
     _ensure_dir()
@@ -121,18 +120,15 @@ def list_user_indexes(user_id: str) -> list[tuple[str, str]]:
         from sqlalchemy import select
         from src.models.document import Document
 
-        async def _lookup():
-            async with _async_session_factory() as session:
-                result = await session.execute(
-                    select(Document.id, Document.title).where(
-                        Document.id.in_([UUID(d) for d in doc_ids]),
-                        Document.owner_id == UUID(user_id),
-                        Document.is_deleted.is_(False),
-                    )
+        async with _async_session_factory() as session:
+            result = await session.execute(
+                select(Document.id, Document.title).where(
+                    Document.id.in_([UUID(d) for d in doc_ids]),
+                    Document.owner_id == UUID(user_id),
+                    Document.is_deleted.is_(False),
                 )
-                return [(str(r[0]), r[1]) for r in result.all()]
-
-        indexed = asyncio.get_event_loop().run_until_complete(_lookup())
+            )
+            indexed = [(str(r[0]), r[1]) for r in result.all()]
     except Exception:
         # Fallback: return doc IDs without titles
         indexed = [(d, d) for d in doc_ids]
