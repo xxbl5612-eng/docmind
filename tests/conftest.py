@@ -17,7 +17,7 @@ os.environ["APP_DEBUG"] = "true"
 os.environ["APP_SECRET_KEY"] = "test-secret-key-for-pytest-do-not-use-in-production"
 
 from src.config import settings  # noqa: E402
-from src.main import create_app  # noqa: E402
+from src.main import create_app, _seed_tiers  # noqa: E402
 from src.models.base import Base  # noqa: E402
 from src.api.deps import _engine, _async_session_factory  # noqa: E402
 
@@ -39,10 +39,11 @@ async def async_client() -> AsyncGenerator[AsyncClient, None]:
 
 @pytest_asyncio.fixture(autouse=True)
 async def reset_db() -> AsyncGenerator[None, None]:
-    """Reset database tables before each test."""
+    """Reset database tables before each test and seed tier definitions."""
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
+    await _seed_tiers()
     yield
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
