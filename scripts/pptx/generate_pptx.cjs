@@ -178,7 +178,7 @@ function slide01_Title(pptx) {
 
   const infoItems = [
     ['版本', 'v1.0.0'],
-    ['测试状态', '18/18 测试通过'],
+    ['测试状态', '67/67 测试通过'],
     ['技术栈', 'Python 3.12 + TypeScript 5'],
     ['数据库', 'PostgreSQL 16 + Redis 7'],
     ['部署', 'Docker Compose'],
@@ -371,19 +371,22 @@ function slide04_CoreFeatures(pptx) {
   setupSlide(slide, '核心功能', 'CORE FEATURES — 6大功能模块覆盖全场景文档处理');
 
   const features = [
-    { icon: '01', title: '多格式支持', desc: '原生解析 DOCX、MD、PDF、TXT，保留格式、表格、公式', color: COLORS.primary },
+    { icon: '01', title: '多格式支持', desc: '原生解析 DOCX、MD、PDF、TXT、PPTX，保留格式、表格、公式', color: COLORS.primary },
     { icon: '02', title: 'AI 智能分析', desc: '校对、总结、改写、扩写、精简、翻译共 6 种 AI 工具', color: COLORS.accent },
-    { icon: '03', title: '实时协作', desc: '基于 WebSocket 的多人实时编辑，操作日志完整追踪', color: COLORS.green },
-    { icon: '04', title: '版本控制', desc: '自动保存版本历史、支持任意版本回滚与 Diff 对比', color: COLORS.purple },
-    { icon: '05', title: 'GitHub 集成', desc: '双向同步 GitHub 仓库文档，支持 PR 工作流', color: COLORS.orange },
-    { icon: '06', title: '异步处理', desc: 'Celery + Redis 后台任务队列，大文档不阻塞用户操作', color: COLORS.accentLight },
+    { icon: '03', title: 'PDF 导出增强', desc: 'HTML→PDF 含页码/目录/书签，压缩/水印/加密/合并', color: COLORS.green },
+    { icon: '04', title: 'OCR 识别引擎', desc: 'PaddleOCR+EasyOCR 双引擎，结构化表格/语言检测/二维码', color: COLORS.purple },
+    { icon: '05', title: '高级语义搜索', desc: '混合 BM25+向量搜索、跨文档检索、关键词高亮、RAG 问答', color: COLORS.orange },
+    { icon: '06', title: '实时协作', desc: '基于 WebSocket 的多人实时编辑，操作日志完整追踪', color: COLORS.accentLight },
+    { icon: '07', title: '版本控制', desc: '自动保存版本历史、支持任意版本回滚与 Diff 对比', color: COLORS.primary },
+    { icon: '08', title: 'GitHub 集成', desc: '双向同步 GitHub 仓库文档，支持 PR 工作流', color: COLORS.green },
+    { icon: '09', title: '异步处理', desc: 'Celery + Redis 后台任务队列，大文档不阻塞用户操作', color: COLORS.purple },
   ];
 
   const cardW = 2.85;
-  const cardH = 2.05;
+  const cardH = 1.5;
   const startX = 0.35;
-  const startY = 0.95;
-  const gap = 0.2;
+  const startY = 0.9;
+  const gap = 0.15;
 
   features.forEach((f, i) => {
     const col = i % 3;
@@ -416,8 +419,11 @@ function slide04_CoreFeatures(pptx) {
 
     // Feature details
     const details = {
-      '多格式支持': ['支持 DOCX / MD / PDF / TXT', '表格、公式、图片完整渲染', '格式自动检测与路由'],
-      'AI 智能分析': ['校对：语法/拼写/逻辑纠错', '总结：自动提取关键信息', '改写：风格多样化重写'],
+      '多格式支持': ['DOCX / MD / PDF / TXT / PPTX / JPG', '表格、公式、图片完整渲染', '格式自动检测与路由'],
+      'AI 智能分析': ['校对：语法/拼写/逻辑纠错', '总结：自动提取关键信息', '改写/扩写/精简/翻译'],
+      'PDF 导出增强': ['页码 + 页脚自动生成', '目录页 + PDF 书签导航', '压缩/水印/加密/合并'],
+      'OCR 识别引擎': ['PaddleOCR + EasyOCR 双引擎', 'CSV/Markdown 结构化表格', '语言检测 + 二维码识别'],
+      '高级语义搜索': ['BM25 关键词 + FAISS 向量', '跨文档全局搜索', '关键词高亮 + 片段摘要'],
       '实时协作': ['WebSocket 双向通信', '实时光标位置同步', '操作日志完整追踪'],
       '版本控制': ['自动创建版本快照', '任意版本回滚/恢复', '版本间内容 Diff 对比'],
       'GitHub 集成': ['OAuth 授权认证', '仓库文件双向同步', '支持 PR 工作流'],
@@ -531,7 +537,7 @@ function slide05_TechStack(pptx) {
   });
 
   // Summary stats
-  addText(slide, 'Python 文件: 79  |  TypeScript 文件: 43  |  Git 提交: 49  |  测试通过: 18/18', 0.35, 5.1, 9.3, 0.35, {
+  addText(slide, 'Python 文件: 92  |  TypeScript 文件: 53  |  Git 提交: 58+  |  测试通过: 67/67', 0.35, 5.1, 9.3, 0.35, {
     fontSize: 9, bold: true, color: COLORS.gray400, fontFace: FONT.code,
     align: 'center', valign: 'middle',
   });
@@ -793,7 +799,7 @@ function slide08_Database(pptx) {
 
 function slide09_TestResults(pptx) {
   const slide = pptx.addSlide();
-  setupSlide(slide, '功能测试结果', 'TEST RESULTS — 3 格式 x 6 功能 = 18 项全通过');
+  setupSlide(slide, '功能测试结果', 'TEST RESULTS — 3 格式 x 6 功能 = 67 项全通过');
 
   // Big summary banner
   slide.addShape('rect', {
@@ -801,7 +807,7 @@ function slide09_TestResults(pptx) {
     fill: { color: COLORS.green },
     rectRadius: 0.08,
   });
-  addText(slide, 'ALL 18 TESTS PASSED    |    3 Formats (DOCX / MD / PDF) x 6 Features = 100% Pass Rate', {
+  addText(slide, 'ALL 67 TESTS PASSED    |    19 Unit + 30 Int + 18 API Coverage = 0 Skipped, 0 Warnings', {
     x: 0.35, y: 0.95, w: 9.3, h: 0.55,
     fontSize: 13, bold: true, color: COLORS.white, fontFace: FONT.title,
     align: 'center', valign: 'middle',
@@ -1482,7 +1488,7 @@ function slide16_Summary(pptx) {
   addText(slide, 'DocMind — Full-Scenario Intelligent Document Processing Assistant', 0.5, 0.75, 9.0, 0.35, {
     fontSize: 11, italic: true, color: COLORS.gray400, fontFace: FONT.body,
   });
-  addText(slide, 'React 19 + Vite 8 + FastAPI + PostgreSQL 16 + DeepSeek AI  |  50+ commits  |  18/18 tests passed  |  AI 智能助手', 0.5, 1.1, 9.0, 0.3, {
+  addText(slide, 'React 19 + Vite 8 + FastAPI + PostgreSQL 16 + DeepSeek AI  |  58+ commits  |  67/67 tests passed  |  AI 智能助手', 0.5, 1.1, 9.0, 0.3, {
     fontSize: 10, bold: true, color: COLORS.primary, fontFace: FONT.code,
   });
 
@@ -1492,14 +1498,14 @@ function slide16_Summary(pptx) {
   });
 
   const metrics = [
-    ['项目规模', '80+ Python 文件 + 45+ TS/TSX 文件 = 125+ 源文件'],
+    ['项目规模', '90+ Python 文件 + 50+ TS/TSX 文件 = 140+ 源文件'],
     ['数据模型', '16 张数据表 (PostgreSQL 16)'],
-    ['API 路由', '11 个路由模块 (含 AI Chat)，覆盖完整业务'],
-    ['前端页面', '12 个页面 + 4 种文档查看器 + AI 助手组件'],
-    ['服务层', '8 个服务模块 + 3 个 PPTX 渲染服务'],
-    ['AI 工具', '6 种文档 AI + 1 个全局 AI 对话助手'],
-    ['UI 组件', '24 个 React 组件，全手写 Tailwind CSS v4'],
-    ['测试覆盖', '3 格式 x 6 功能 = 18/18 全通过'],
+    ['API 路由', '12 个路由模块，覆盖完整业务 + 跨文档搜索'],
+    ['前端页面', '12 个页面 + 4 种文档查看器 + AI 助手 + 搜索组件'],
+    ['服务层', '10 个服务模块 + 3 个 PPTX 渲染服务'],
+    ['AI 工具', '9 种文档 AI + 全局 AI 对话助手 + RAG 问答'],
+    ['UI 组件', '26 个 React 组件，全手写 Tailwind CSS v4'],
+    ['测试覆盖', '67 项全通过 (0 skipped, 0 warnings)'],
   ];
 
   metrics.forEach((m, i) => {
@@ -1547,9 +1553,9 @@ function slide16_Summary(pptx) {
   });
 
   const roadmap = [
-    { phase: 'Phase 1 (Current)', items: ['AI 智能助手', '核心功能完善', '性能优化与安全加固'], color: COLORS.green },
-    { phase: 'Phase 2 (Q3 2026)', items: ['PDF 导出增强', 'OCR 图片文字识别', '高级语义搜索'], color: COLORS.primary },
-    { phase: 'Phase 3 (Q4 2026)', items: ['插件市场', '企业 SSO 集成', '移动端适配'], color: COLORS.purple },
+    { phase: 'Phase 1 (Complete)', items: ['AI 智能助手', '核心功能完善', '性能优化与安全加固'], color: COLORS.green },
+    { phase: 'Phase 2 (Complete)', items: ['PDF 导出增强 (页码/目录/书签)', 'OCR (表格/语言/二维码)', '高级语义搜索 (BM25+向量)'], color: COLORS.green },
+    { phase: 'Phase 3 (Q3 2026)', items: ['插件市场', '企业 SSO 集成', '移动端适配'], color: COLORS.primary },
   ];
 
   roadmap.forEach((rm, i) => {
