@@ -6,7 +6,6 @@ Lazy-loads the model on first use to minimize memory footprint.
 from __future__ import annotations
 
 import io
-from pathlib import Path
 
 _reader = None
 
@@ -44,7 +43,6 @@ def ocr_pdf_pages(pdf_bytes: bytes) -> str:
     all_text: list[str] = []
 
     for page in doc:
-        # Render page at 200 DPI for good OCR quality
         pix = page.get_pixmap(dpi=200)
         img_array = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
             pix.height, pix.width, pix.n
@@ -55,3 +53,31 @@ def ocr_pdf_pages(pdf_bytes: bytes) -> str:
 
     doc.close()
     return "\n\n".join(all_text)
+
+
+def ocr_image_unified(image_bytes: bytes, engine: str = "auto", language: str = "ch") -> str:
+    """OCR image using the best available engine (PaddleOCR preferred, EasyOCR fallback)."""
+    if engine in ("paddle", "auto"):
+        try:
+            from src.services.ocr_service import ocr_image as paddle_ocr_image
+            result = paddle_ocr_image(image_bytes, engine="paddle", language=language)
+            if result.strip():
+                return result
+        except Exception:
+            if engine == "paddle":
+                raise
+    return ocr_image(image_bytes)
+
+
+def ocr_pdf_unified(pdf_bytes: bytes, engine: str = "auto", language: str = "ch") -> str:
+    """OCR PDF using the best available engine (PaddleOCR preferred, EasyOCR fallback)."""
+    if engine in ("paddle", "auto"):
+        try:
+            from src.services.ocr_service import ocr_pdf as paddle_ocr_pdf
+            result = paddle_ocr_pdf(pdf_bytes, engine="paddle", language=language)
+            if result.strip():
+                return result
+        except Exception:
+            if engine == "paddle":
+                raise
+    return ocr_pdf_pages(pdf_bytes)

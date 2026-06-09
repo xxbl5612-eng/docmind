@@ -24,16 +24,25 @@ from src.schemas.processing import (
     ConvertRequest,
     ExtractRequest,
     ExtractResponse,
+    OCRRequest,
+    OCRResponse,
     ProofreadRequest,
     QARequest,
     QAResponse,
+    RAGQAResponse,
     RewriteRequest,
     RewriteResponse,
+    SearchQARequest,
+    SearchRequest,
+    SearchResponse,
+    SearchResultItem,
+    SearchSourceItem,
     SummarizeRequest,
     SummarizeResponse,
     TaskStatusResponse,
 )
 from src.services.ai_service import AIService
+from src.services.document_service import DocumentService
 from src.services.operation_log_service import OperationLogService
 
 router = APIRouter(prefix="/documents/{doc_id}/ai", tags=["ai"])
@@ -163,6 +172,183 @@ async def ai_qa(
     return APIResponse(success=True, data=result.result)
 
 
+# ── OCR endpoint ──
+
+
+@router.post("/ocr", response_model=APIResponse[OCRResponse])
+async def ai_ocr(
+    body: OCRRequest,
+    doc: Document = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    _: User = Depends(require_quota("ai_calls")),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    svc = AIService(db, cache)
+    doc_svc = DocumentService(db, cache)
+    original_bytes = doc_svc.get_original_file(doc)
+    if original_bytes is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Original file not found")
+
+    engine = body.engine
+    language = body.language
+    result_text = ""
+    tables = None
+
+    if doc.input_format in ("png", "jpg", "jpeg"):
+        from src.ai.ocr import ocr_image_unified
+        result_text = ocr_image_unified(original_bytes, engine=engine, language=language)
+        engine_used = "paddle" if engine in ("paddle", "auto") else "easyocr"
+    elif doc.input_format == "pdf":
+        from src.ai.ocr import ocr_pdf_unified
+        result_text = ocr_pdf_unified(original_bytes, engine=engine, language=language)
+        engine_used = "paddle" if engine in ("paddle", "auto") else "easyocr"
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"OCR is only supported for PDF and image formats, not {doc.input_format}")
+
+    if body.detect_tables and result_text and engine in ("paddle", "auto"):
+        try:
+            from src.services.ocr_service import ocr_table
+            tables = ocr_table(original_bytes)
+        except Exception:
+            pass
+
+    await _log_operation(db, cache, current_user, doc.id, "ai.ocr")
+    return APIResponse(
+        success=True,
+        data=OCRResponse(
+            text=result_text, engine_used=engine_used,
+            char_count=len(result_text), tables=tables,
+        ),
+    )
+
+
+# ── Semantic search endpoints ──
+
+
+@router.post("/search", response_model=APIResponse[SearchResponse])
+async def semantic_search_doc(
+    body: SearchRequest,
+    doc: Document = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    from src.ai.semantic_search import semantic_search, search_available
+    from src.services.search_service import index_exists, auto_index_on_upload
+
+    if not search_available():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Semantic search is not available. Install search dependencies: pip install docmind[search]",
+        )
+
+    doc_id = str(doc.id)
+    if not index_exists(doc_id):
+        # Try to auto-build index on first search
+        doc_svc = DocumentService(db, cache)
+        content = await doc_svc.get_content(doc.id, current_user.id)
+        if content:
+            built = auto_index_on_upload(doc_id, content, doc.input_format)
+            if not built:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Search index not yet built. Try POST /search/index first.",
+                )
+
+    results = semantic_search(body.query, doc_id, body.top_k or settings.search_top_k)
+    await _log_operation(db, cache, current_user, doc.id, "search.query")
+    return APIResponse(
+        success=True,
+        data=SearchResponse(
+            query=body.query,
+            results=[SearchResultItem(chunk_index=r.chunk_index, text=r.text, score=r.score) for r in results],
+            total_chunks_searched=len(results),
+        ),
+    )
+
+
+@router.post("/search/qa", response_model=APIResponse[RAGQAResponse])
+async def semantic_search_qa(
+    body: SearchQARequest,
+    doc: Document = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    from src.ai.semantic_search import rag_qa, search_available
+    from src.services.search_service import index_exists, auto_index_on_upload
+
+    if not search_available():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Semantic search is not available. Install search dependencies: pip install docmind[search]",
+        )
+
+    doc_id = str(doc.id)
+    if not index_exists(doc_id):
+        doc_svc = DocumentService(db, cache)
+        content = await doc_svc.get_content(doc.id, current_user.id)
+        if content:
+            auto_index_on_upload(doc_id, content, doc.input_format)
+
+    result = await rag_qa(body.question, doc_id, body.top_k or settings.search_top_k)
+    await _log_operation(db, cache, current_user, doc.id, "search.qa")
+    return APIResponse(
+        success=True,
+        data=RAGQAResponse(
+            question=body.question,
+            answer=result.answer,
+            sources=[SearchSourceItem(chunk_index=s.chunk_index, text_snippet=s.text[:300], score=s.score)
+                     for s in result.sources],
+            tokens_used=result.tokens_used,
+        ),
+    )
+
+
+@router.post("/search/index", response_model=APIResponse[dict])
+async def build_search_index_endpoint(
+    doc: Document = Depends(require_document_access("edit")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    from src.services.search_service import auto_index_on_upload, index_exists
+
+    doc_svc = DocumentService(db, cache)
+    content = await doc_svc.get_content(doc.id, current_user.id)
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Document has no parsed content yet")
+
+    built = auto_index_on_upload(str(doc.id), content, doc.input_format)
+    if not built:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Index build failed. Ensure search dependencies are installed: pip install docmind[search]",
+        )
+
+    metadata = {}
+    if index_exists(str(doc.id)):
+        from src.services.search_service import get_meta_path
+        import json
+        meta = json.loads(get_meta_path(str(doc.id)).read_text(encoding="utf-8"))
+        metadata["chunks_indexed"] = len(meta)
+
+    await _log_operation(db, cache, current_user, doc.id, "search.index")
+    return APIResponse(success=True, data=metadata, message="Index built")
+
+
+@router.delete("/search/index", response_model=APIResponse)
+async def delete_search_index_endpoint(
+    doc: Document = Depends(require_document_access("edit")),
+    current_user: User = Depends(get_current_active_user),
+):
+    from src.services.search_service import delete_index
+    delete_index(str(doc.id))
+    return APIResponse(success=True, message="Search index deleted")
+
+
 # ── Async AI endpoints (long documents) ──
 
 @router.post("/async/proofread", response_model=APIResponse[AsyncTaskResponse])
@@ -285,6 +471,35 @@ async def list_tasks(
     svc = AIService(db, cache)
     jobs = await svc.list_jobs(current_user.id)
     return APIResponse(success=True, data=[TaskStatusResponse.model_validate(j) for j in jobs])
+
+
+@router.get("/convert/download")
+async def download_converted_pdf(
+    path: str,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Download a generated file from the convert pipeline (PDF, DOCX, etc.)."""
+    from fastapi.responses import Response
+    from src.core.storage import download_file
+
+    if ".." in path or not (path.startswith("converted/") or path.startswith("exports/")):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid path")
+
+    # Detect MIME from extension
+    ext = path.rsplit(".", 1)[-1] if "." in path else "bin"
+    mimes = {"pdf": "application/pdf", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+             "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+             "md": "text/markdown", "html": "text/html", "txt": "text/plain",
+             "epub": "application/epub+zip", "odt": "application/vnd.oasis.opendocument.text"}
+    media_type = mimes.get(ext, "application/octet-stream")
+    filename = f"converted.{ext}"
+
+    try:
+        data = download_file(path)
+        return Response(content=data, media_type=media_type,
+                        headers={"Content-Disposition": f"attachment; filename={filename}"})
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
 
 
 async def _log_operation(

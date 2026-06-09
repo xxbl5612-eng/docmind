@@ -19,8 +19,9 @@ def parse_pdf(data: bytes) -> str:
     # If no text found, try OCR on rendered pages (image-based PDF)
     if not result:
         try:
-            from src.ai.ocr import ocr_pdf_pages
-            result = ocr_pdf_pages(data)
+            from src.ai.ocr import ocr_pdf_unified
+            from src.config import settings
+            result = ocr_pdf_unified(data, engine=settings.ocr_engine, language=settings.ocr_language)
         except Exception:
             pass
 
@@ -111,8 +112,9 @@ def parse_doc(data: bytes) -> str:
 
 def parse_image(data: bytes) -> str:
     """Extract text from images (PNG/JPEG) using OCR."""
-    from src.ai.ocr import ocr_image
-    return ocr_image(data)
+    from src.ai.ocr import ocr_image_unified
+    from src.config import settings
+    return ocr_image_unified(data, engine=settings.ocr_engine, language=settings.ocr_language)
 
 
 # ── Parser registry ──

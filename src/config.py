@@ -49,6 +49,35 @@ class Settings(BaseSettings):
     deepseek_circuit_breaker_recovery: int = 30
     deepseek_daily_token_budget: int = 10_000_000
 
+    # ── Pandoc ──
+    pandoc_enabled: bool = True
+    pandoc_pdf_engine: str = ""
+
+    # ── LibreOffice ──
+    libreoffice_path: str = ""  # empty = auto-detect (Windows: soffice.exe, Unix: soffice)
+
+    # ── Ghostscript ──
+    ghostscript_enabled: bool = True
+    ghostscript_path: str = ""  # empty = auto-detect (Windows: gswin64c.exe, Unix: gs)
+
+    # ── PDF Export ──
+    pdf_default_quality: Literal["screen", "ebook", "printer", "prepress"] = "screen"
+    pdf_encrypt_algorithm: Literal["AES-256", "RC4-128"] = "AES-256"
+
+    # ── OCR ──
+    ocr_engine: Literal["paddle", "easyocr", "auto"] = "auto"
+    ocr_language: str = "ch"  # "ch", "en", "ch_en"
+    ocr_detect_tables: bool = True
+
+    # ── Semantic Search ──
+    search_enabled: bool = True
+    search_embedding_model: str = "maidalun1020/bce-embedding-base_v1"
+    search_top_k: int = 5
+    search_auto_index: bool = True
+    search_chunk_size: int = 1000
+    search_chunk_overlap: int = 100
+    search_similarity_threshold: float = 0.3
+
     # ── Storage ──
     storage_endpoint: str = "localhost:9000"
     storage_access_key: str = "minioadmin"

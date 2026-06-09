@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class CreateSessionRequest(BaseModel):
@@ -18,11 +19,16 @@ class SessionResponse(BaseModel):
     owner_id: str
     status: str
     settings: dict
-    collaborators: list["CollaboratorResponse"]
+    collaborators: list["CollaboratorResponse"] = []
     created_at: datetime
     expires_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+    @field_validator("id", "document_id", "owner_id", mode="before")
+    @classmethod
+    def coerce_uuid(cls, v: object) -> str:
+        return str(v)
 
 
 class CollaboratorResponse(BaseModel):
@@ -35,6 +41,11 @@ class CollaboratorResponse(BaseModel):
     last_active_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+    @field_validator("id", "user_id", mode="before")
+    @classmethod
+    def coerce_uuid(cls, v: object) -> str:
+        return str(v)
 
 
 class InviteRequest(BaseModel):
@@ -58,3 +69,8 @@ class InvitationResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("id", "session_id", "inviter_id", mode="before")
+    @classmethod
+    def coerce_uuid(cls, v: object) -> str:
+        return str(v)

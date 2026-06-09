@@ -230,31 +230,36 @@ class DeepSeekClient:
 
     # ── Convenience methods ──
 
+    @staticmethod
+    def _safe_wrap(text: str) -> str:
+        """Escape triple backticks to keep prompt delimiters unambiguous."""
+        return text.replace("```", "\\`\\`\\`")
+
     async def proofread(self, text: str, system_prompt: str, language: str = "auto") -> ChatResponse:
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Language: {language}\n\nText to proofread:\n```\n{text}\n```"},
+            {"role": "user", "content": f"Language: {language}\n\nText to proofread:\n```\n{self._safe_wrap(text)}\n```"},
         ]
         return await self.chat(messages, temperature=0.1, max_tokens=8192)
 
     async def rewrite(self, text: str, system_prompt: str) -> ChatResponse:
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Text to rewrite:\n```\n{text}\n```"},
+            {"role": "user", "content": f"Text to rewrite:\n```\n{self._safe_wrap(text)}\n```"},
         ]
         return await self.chat(messages, temperature=0.5, max_tokens=8192)
 
     async def summarize(self, text: str, system_prompt: str) -> ChatResponse:
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Text to summarize:\n```\n{text}\n```"},
+            {"role": "user", "content": f"Text to summarize:\n```\n{self._safe_wrap(text)}\n```"},
         ]
         return await self.chat(messages, temperature=0.2, max_tokens=4096)
 
     async def extract(self, text: str, system_prompt: str) -> ChatResponse:
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Text to extract from:\n```\n{text}\n```"},
+            {"role": "user", "content": f"Text to extract from:\n```\n{self._safe_wrap(text)}\n```"},
         ]
         return await self.chat(
             messages,
@@ -266,14 +271,14 @@ class DeepSeekClient:
     async def convert(self, text: str, system_prompt: str) -> ChatResponse:
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Content to convert:\n```\n{text}\n```"},
+            {"role": "user", "content": f"Content to convert:\n```\n{self._safe_wrap(text)}\n```"},
         ]
         return await self.chat(messages, temperature=0.1, max_tokens=16384)
 
     async def answer_question(self, question: str, context: str, system_prompt: str) -> ChatResponse:
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Context:\n```\n{context}\n```\n\nQuestion: {question}"},
+            {"role": "user", "content": f"Context:\n```\n{self._safe_wrap(context)}\n```\n\nQuestion: {question}"},
         ]
         return await self.chat(messages, temperature=0.2, max_tokens=4096)
 

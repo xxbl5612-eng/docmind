@@ -27,6 +27,7 @@ class DocumentResponse(BaseModel):
     current_version_id: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    is_shared: bool = False  # True if current user is a collaborator, not the owner
 
     model_config = {"from_attributes": True}
 
@@ -87,6 +88,12 @@ class DocumentContentUpdateRequest(BaseModel):
 class ExportRequest(BaseModel):
     target_format: str = Field(pattern=r"^(pdf|docx|md|html|txt|json)$")
     options: dict | None = None
+    compress: bool = False
+    compress_quality: str = "screen"
+    watermark_text: str | None = None
+    watermark_opacity: float = 0.3
+    watermark_rotation: float = 45.0
+    encrypt_password: str | None = None
 
 
 class ExportStatusResponse(BaseModel):
@@ -94,6 +101,34 @@ class ExportStatusResponse(BaseModel):
     status: str
     progress_pct: int
     download_url: str | None = None
+
+
+# ── PDF operations ──
+
+
+class PdfCompressRequest(BaseModel):
+    quality: str = Field(default="screen", pattern=r"^(screen|ebook|printer|prepress)$")
+
+
+class PdfWatermarkRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=200)
+    opacity: float = Field(default=0.3, ge=0.0, le=1.0)
+    rotation: float = Field(default=45.0, ge=-360.0, le=360.0)
+
+
+class PdfEncryptRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+
+
+class PdfMergeRequest(BaseModel):
+    document_ids: list[str] = Field(min_length=2, max_length=20)
+
+
+class PdfOperationResponse(BaseModel):
+    download_path: str
+    size_bytes: int
+    original_size_bytes: int
+    compression_ratio: float | None = None
 
 
 # ── PPTX Slide schemas ──

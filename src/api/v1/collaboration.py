@@ -24,6 +24,49 @@ from src.services.operation_log_service import OperationLogService
 
 router = APIRouter(prefix="/documents/{doc_id}/collaboration", tags=["collaboration"])
 
+# ── User-level invitation router (no document scope needed) ──
+
+invitation_router = APIRouter(prefix="/collaboration/invitations", tags=["collaboration-invitations"])
+
+
+@invitation_router.get("/", response_model=APIResponse[list[InvitationResponse]])
+async def list_my_invitations(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    svc = CollaborationService(db, cache)
+    invitations = await svc.get_pending_invitations(current_user.id)
+    return APIResponse(success=True, data=[InvitationResponse.model_validate(inv) for inv in invitations])
+
+
+@invitation_router.post("/{invitation_id}/accept", response_model=APIResponse)
+async def accept_invitation(
+    invitation_id: uuid.UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    svc = CollaborationService(db, cache)
+    collab = await svc.accept_invitation(invitation_id, current_user.id)
+    if collab is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invitation expired or invalid")
+    return APIResponse(success=True, message="Joined session")
+
+
+@invitation_router.post("/{invitation_id}/reject", response_model=APIResponse)
+async def reject_invitation(
+    invitation_id: uuid.UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    svc = CollaborationService(db, cache)
+    ok = await svc.reject_invitation(invitation_id, current_user.id)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invitation not found")
+    return APIResponse(success=True, message="Invitation rejected")
+
 
 @router.post("/", response_model=APIResponse[SessionResponse], status_code=status.HTTP_201_CREATED)
 async def create_session(
@@ -129,6 +172,19 @@ async def remove_collaborator(
     await log_svc.log(user_id=current_user.id, document_id=doc.id, action="collaboration.remove", action_category="collaboration")
 
     return APIResponse(success=True, message="Collaborator removed")
+
+
+@router.delete("/leave", response_model=APIResponse)
+async def leave_document(
+    doc = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    """Current user leaves all collaboration sessions on this document."""
+    svc = CollaborationService(db, cache)
+    count = await svc.leave_all_sessions(doc.id, current_user.id)
+    return APIResponse(success=True, message=f"Left {count} session(s)")
 
 
 @router.delete("/{session_id}", response_model=APIResponse)

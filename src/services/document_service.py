@@ -6,7 +6,7 @@ import hashlib
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -23,6 +23,7 @@ from src.core.storage import (
     upload_file,
     upload_text,
 )
+from src.models.collaboration import CollaborationSession, Collaborator
 from src.models.document import Document
 from src.models.document_version import DocumentVersion
 from src.utils.file_utils import detect_format, get_file_extension
@@ -116,9 +117,24 @@ class DocumentService:
         status: str | None = None,
         doc_type: str | None = None,
     ) -> tuple[list[Document], int]:
-        """List user's documents with optional filters."""
+        """List user's documents (owned + collaborated) with optional filters."""
+        from sqlalchemy import or_, exists
+
+        # Subquery: documents where user is an active collaborator
+        collab_doc_ids = (
+            select(CollaborationSession.document_id)
+            .join(Collaborator, Collaborator.session_id == CollaborationSession.id)
+            .where(
+                Collaborator.user_id == user_id,
+                CollaborationSession.status == "active",
+            )
+        )
+
         conditions = [
-            Document.owner_id == user_id,
+            or_(
+                Document.owner_id == user_id,
+                Document.id.in_(collab_doc_ids),
+            ),
             Document.is_deleted.is_(False),
         ]
         if status:

@@ -76,6 +76,36 @@ class AIService:
         return await self._safe_run(process_extract(cleaned.clean_text, extract_type=extract_type, custom_schema=custom_schema), "extract")
 
     async def convert(self, doc: Document, target_format: str, preserve_structure: bool = True) -> ProcessingResult:
+        # Try Pandoc fast path first for supported format pairs
+        from src.services.pandoc_service import pandoc_convert
+        from src.core.storage import download_file, upload_file
+
+        if can_pandoc_convert_static(doc.input_format, target_format):
+            try:
+                original_bytes = download_file(doc.storage_path)
+                result_bytes = pandoc_convert(original_bytes, doc.input_format, target_format)
+                if result_bytes:
+                    import uuid as _uuid
+                    output_path = f"converted/{_uuid.uuid4().hex}.{target_format}"
+                    mime = _mime_for_format(target_format)
+                    upload_file(result_bytes, output_path, mime)
+                    return ProcessingResult(
+                        task_id=_uuid.uuid4().hex,
+                        status="completed",
+                        result={
+                            "converted_content": f"[Pandoc: {len(result_bytes)} bytes]",
+                            "target_format": target_format,
+                            "output_path": output_path,
+                            "output_size_bytes": len(result_bytes),
+                            "engine": "pandoc",
+                        },
+                        chunks_processed=1,
+                        tokens_used=0,
+                    )
+            except Exception:
+                pass  # Fall through to AI path
+
+        # Fall back to AI-based conversion
         content = await self._get_content(doc)
         cleaned = clean(content, doc.input_format)
         return await self._safe_run(process_convert(cleaned.clean_text, target_format=target_format, preserve_structure=preserve_structure), "convert")
@@ -154,3 +184,28 @@ class AIService:
         if doc.parsed_content_path:
             return download_text(doc.parsed_content_path)
         return download_text(doc.storage_path)
+
+
+# ── Pandoc helpers (module-level for picklability) ──
+
+def can_pandoc_convert_static(input_fmt: str, target_fmt: str) -> bool:
+    """Check Pandoc availability (safe to call from async context)."""
+    from src.services.pandoc_service import can_pandoc_convert
+    return can_pandoc_convert(input_fmt, target_fmt)
+
+
+def _mime_for_format(fmt: str) -> str:
+    """Return MIME type for a file format."""
+    mimes = {
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "pdf": "application/pdf",
+        "html": "text/html",
+        "md": "text/markdown",
+        "txt": "text/plain",
+        "epub": "application/epub+zip",
+        "odt": "application/vnd.oasis.opendocument.text",
+        "rtf": "application/rtf",
+    }
+    return mimes.get(fmt, "application/octet-stream")

@@ -28,6 +28,11 @@ from src.schemas.document import (
     DocumentUpdateRequest,
     ExportRequest,
     ExportStatusResponse,
+    PdfCompressRequest,
+    PdfEncryptRequest,
+    PdfMergeRequest,
+    PdfOperationResponse,
+    PdfWatermarkRequest,
     SlidesResponse,
 )
 from src.services.document_service import DocumentService
@@ -64,6 +69,19 @@ async def upload_document(
     try:
         parsed = parse_document(content, doc.input_format)
         doc = await svc.save_parsed_content(doc.id, parsed)
+
+        # Pre-render PPTX slides in background for instant viewing
+        if doc.input_format == "pptx":
+            from src.services.pptx_render_service import pre_render_async
+            pre_render_async(str(doc.id), content)
+
+        # Auto-build semantic search index
+        if settings.search_enabled and settings.search_auto_index:
+            try:
+                from src.services.search_service import auto_index_on_upload
+                auto_index_on_upload(str(doc.id), parsed, doc.input_format)
+            except Exception:
+                pass
     except Exception:
         # If parsing fails, try async via Celery (only if Redis available)
         if not settings.use_dev_fallback:
@@ -112,10 +130,15 @@ async def list_documents(
         status=status_filter,
         doc_type=doc_type,
     )
+    items: list[DocumentResponse] = []
+    for d in docs:
+        resp = DocumentResponse.model_validate(d)
+        resp.is_shared = str(d.owner_id) != str(current_user.id)
+        items.append(resp)
     return APIResponse(
         success=True,
         data=DocumentListResponse(
-            items=[DocumentResponse.model_validate(d) for d in docs],
+            items=items,
             total=total,
             page=pagination.page,
             page_size=pagination.page_size,
@@ -233,9 +256,20 @@ async def export_document(
     cache: CacheManager = Depends(get_cache),
 ):
     """Start a document export. For large documents, this is async via Celery."""
+    opts = body.options or {}
+    opts["compress"] = body.compress
+    opts["compress_quality"] = body.compress_quality
+    if body.watermark_text:
+        opts["watermark_text"] = body.watermark_text
+        opts["watermark_opacity"] = body.watermark_opacity
+        opts["watermark_rotation"] = body.watermark_rotation
+    if body.encrypt_password:
+        opts["encrypt_password"] = body.encrypt_password
+
     task = celery_app.send_task(
         "src.workers.export_tasks.export_document",
-        args=[str(doc.id), doc.parsed_content_path or doc.storage_path, body.target_format, body.options],
+        args=[str(doc.id), doc.storage_path, doc.parsed_content_path or doc.storage_path,
+              body.target_format, doc.input_format, opts],
         queue="export",
     )
 
@@ -248,6 +282,152 @@ async def export_document(
             download_url=None,
         ),
         message="Export task started",
+    )
+
+
+# ── PDF operations ──
+
+
+@router.post("/{doc_id}/pdf/compress", response_model=APIResponse[PdfOperationResponse])
+async def compress_pdf_endpoint(
+    body: PdfCompressRequest,
+    doc = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    if doc.input_format != "pdf":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF documents can be compressed")
+    svc = DocumentService(db, cache)
+    original_bytes = svc.get_original_file(doc)
+    if original_bytes is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Original file not found")
+
+    from src.services.pdf_export_service import compress_pdf
+    result = compress_pdf(original_bytes, body.quality)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="PDF compression failed. Ensure Ghostscript is installed.")
+
+    from src.core.storage import upload_file
+    out_path = f"exports/{doc.id}_compressed.pdf"
+    upload_file(result, out_path, "application/pdf")
+    ratio = round(len(result) / max(len(original_bytes), 1), 4)
+    return APIResponse(
+        success=True,
+        data=PdfOperationResponse(
+            download_path=out_path, size_bytes=len(result),
+            original_size_bytes=len(original_bytes), compression_ratio=ratio,
+        ),
+    )
+
+
+@router.post("/{doc_id}/pdf/watermark", response_model=APIResponse[PdfOperationResponse])
+async def watermark_pdf_endpoint(
+    body: PdfWatermarkRequest,
+    doc = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    if doc.input_format != "pdf":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF documents support watermark")
+    svc = DocumentService(db, cache)
+    original_bytes = svc.get_original_file(doc)
+    if original_bytes is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    from src.services.pdf_export_service import add_watermark
+    result = add_watermark(original_bytes, body.text, body.opacity, body.rotation)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="PDF watermark failed. Ensure reportlab is installed.")
+
+    from src.core.storage import upload_file
+    out_path = f"exports/{doc.id}_watermarked.pdf"
+    upload_file(result, out_path, "application/pdf")
+    return APIResponse(
+        success=True,
+        data=PdfOperationResponse(
+            download_path=out_path, size_bytes=len(result),
+            original_size_bytes=len(original_bytes),
+        ),
+    )
+
+
+@router.post("/{doc_id}/pdf/encrypt", response_model=APIResponse[PdfOperationResponse])
+async def encrypt_pdf_endpoint(
+    body: PdfEncryptRequest,
+    doc = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    if doc.input_format != "pdf":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF documents support encryption")
+    svc = DocumentService(db, cache)
+    original_bytes = svc.get_original_file(doc)
+    if original_bytes is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    from src.services.pdf_export_service import encrypt_pdf
+    result = encrypt_pdf(original_bytes, body.password)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="PDF encryption failed")
+
+    from src.core.storage import upload_file
+    out_path = f"exports/{doc.id}_encrypted.pdf"
+    upload_file(result, out_path, "application/pdf")
+    return APIResponse(
+        success=True,
+        data=PdfOperationResponse(
+            download_path=out_path, size_bytes=len(result),
+            original_size_bytes=len(original_bytes),
+        ),
+    )
+
+
+@router.post("/pdf/merge", response_model=APIResponse[PdfOperationResponse])
+async def merge_pdfs_endpoint(
+    body: PdfMergeRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    from src.models.document import Document as DocModel
+    svc = DocumentService(db, cache)
+    pdf_parts: list[bytes] = []
+    total_original = 0
+    for did_str in body.document_ids:
+        try:
+            did = uuid.UUID(did_str)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid document ID: {did_str}")
+        doc = await svc.get_document(did, current_user.id)
+        if doc is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Document {did_str} not found")
+        data = svc.get_original_file(doc)
+        if data is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail=f"Original file not found for {did_str}")
+        pdf_parts.append(data)
+        total_original += len(data)
+
+    from src.services.pdf_export_service import merge_pdfs
+    result = merge_pdfs(pdf_parts)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="PDF merge failed")
+
+    from src.core.storage import upload_file
+    import uuid as _uuid
+    out_path = f"exports/merged_{_uuid.uuid4().hex}.pdf"
+    upload_file(result, out_path, "application/pdf")
+    return APIResponse(
+        success=True,
+        data=PdfOperationResponse(
+            download_path=out_path, size_bytes=len(result),
+            original_size_bytes=total_original,
+        ),
     )
 
 
@@ -382,6 +562,54 @@ async def get_slide_image(
     return Response(content=image_bytes, media_type=content_type)
 
 
+@router.get("/{doc_id}/slides/render/{slide_idx}")
+async def get_rendered_slide_image(
+    doc = Depends(require_document_access("view")),
+    slide_idx: int = 0,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    """Render a PPTX slide as PNG via PowerPoint COM (cached)."""
+    if doc.input_format not in ("pptx", "pptx"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PPTX supported")
+
+    svc = DocumentService(db, cache)
+    original_bytes = svc.get_original_file(doc)
+    if original_bytes is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    from src.services.pptx_render_service import render_slides_cached
+    images = render_slides_cached(str(doc.id), original_bytes)
+    if not images or slide_idx >= len(images):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Slide not found")
+
+    from fastapi.responses import Response
+    return Response(content=images[slide_idx], media_type="image/png")
+
+
+@router.get("/{doc_id}/slides/render-count")
+async def get_rendered_slide_count(
+    doc = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    """Get slide count (from cached render or fast parse)."""
+    if doc.input_format not in ("pptx", "pptx"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PPTX supported")
+
+    svc = DocumentService(db, cache)
+    original_bytes = svc.get_original_file(doc)
+    if original_bytes is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    from src.services.pptx_render_service import render_slides_cached
+    images = render_slides_cached(str(doc.id), original_bytes)
+    count = len(images) if images else 0
+    return APIResponse(success=True, data={"count": count})
+
+
 @router.get("/{doc_id}/original")
 async def get_original_file(
     doc = Depends(require_document_access("view")),
@@ -400,3 +628,28 @@ async def get_original_file(
         content=original_bytes,
         media_type=doc.mime_type or "application/octet-stream",
     )
+
+
+@router.get("/{doc_id}/pandoc-render")
+async def get_pandoc_render(
+    doc = Depends(require_document_access("view")),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    """Render PPTX/DOCX slides as HTML via Pandoc for high-fidelity viewing."""
+    if doc.input_format not in ("pptx", "pptx", "docx"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pandoc render only supports PPTX/DOCX")
+
+    svc = DocumentService(db, cache)
+    original_bytes = svc.get_original_file(doc)
+    if original_bytes is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    from src.services.pptx_pandoc_render import pptx_to_html
+    html = pptx_to_html(original_bytes)
+    if html is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Pandoc rendering failed")
+
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=html, media_type="text/html")

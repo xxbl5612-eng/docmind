@@ -162,16 +162,40 @@ async def process_convert(
     client: DeepSeekClient | None = None,
 ) -> ProcessingResult:
     client = client or get_deepseek_client()
+
+    # For PDF: first convert to HTML, then render to actual PDF bytes
+    actual_target = "html" if target_format in ("pdf", "pdf") else target_format
+
     system_prompt = CONVERT_SYSTEM
     if preserve_structure:
         system_prompt += "\nPreserve the original document structure including headings, lists, and tables."
-    user_msg = convert_user(text, target_format)
+    user_msg = convert_user(text, actual_target)
 
     response = await client.chat_with_system(system_prompt, user_msg, temperature=0.1, max_tokens=16384)
+    converted = response.content
+
+    result: dict = {
+        "converted_content": converted,
+        "target_format": target_format,
+        "tokens_used": _clean_usage(response.usage),
+    }
+
+    # If target is PDF, generate actual PDF from the HTML output
+    if target_format in ("pdf", "PDF"):
+        from src.ai.pdf_generator import generate_pdf_from_html
+        import uuid as _uuid
+        from src.core.storage import upload_file
+
+        pdf_bytes = generate_pdf_from_html(converted, title="Converted Document")
+        pdf_path = f"converted/{_uuid.uuid4().hex}.pdf"
+        upload_file(pdf_bytes, pdf_path, "application/pdf")
+        result["pdf_path"] = pdf_path
+        result["pdf_size_bytes"] = len(pdf_bytes)
+
     return ProcessingResult(
         task_id=uuid.uuid4().hex,
         status="completed",
-        result={"converted_content": response.content, "target_format": target_format, "tokens_used": _clean_usage(response.usage)},
+        result=result,
         chunks_processed=1,
         tokens_used=response.usage.get("total_tokens", 0),
     )

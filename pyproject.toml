@@ -51,6 +51,18 @@ dev = [
     "mypy>=1.13",
     "pre-commit>=4.1",
 ]
+ocr = [
+    "paddleocr>=2.9",
+    "paddlepaddle>=2.6",
+    "pdf2image>=1.17",
+]
+search = [
+    "llama-index-core>=0.12",
+    "llama-index-embeddings-huggingface>=0.4",
+    "llama-index-vector-stores-faiss>=0.3",
+    "faiss-cpu>=1.9",
+    "sentence-transformers>=3.3",
+]
 
 [tool.ruff]
 line-length = 120

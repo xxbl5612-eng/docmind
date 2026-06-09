@@ -98,3 +98,68 @@ class TaskStatusResponse(BaseModel):
     completed_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class OCRRequest(BaseModel):
+    engine: str = Field(default="auto", pattern=r"^(paddle|easyocr|auto)$")
+    language: str = Field(default="ch", pattern=r"^(ch|en|ch_en)$")
+    detect_tables: bool = True
+
+
+class OCRResponse(BaseModel):
+    text: str
+    engine_used: str
+    page_count: int | None = None
+    tables: list[dict] | None = None
+    char_count: int
+
+
+class ChatMessage(BaseModel):
+    role: str = Field(pattern=r"^(user|assistant|system)$")
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage]
+    document_id: str | None = None
+
+
+class SearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=2000)
+    top_k: int = Field(default=5, ge=1, le=50)
+    threshold: float = Field(default=0.3, ge=0.0, le=1.0)
+
+
+class SearchResultItem(BaseModel):
+    chunk_index: int
+    text: str
+    score: float
+
+
+class SearchResponse(BaseModel):
+    query: str
+    results: list[SearchResultItem]
+    total_chunks_searched: int
+
+
+class SearchQARequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    top_k: int = Field(default=5, ge=1, le=20)
+
+
+class SearchSourceItem(BaseModel):
+    chunk_index: int
+    text_snippet: str
+    score: float
+
+
+class RAGQAResponse(BaseModel):
+    question: str
+    answer: str
+    sources: list[SearchSourceItem]
+    tokens_used: dict
+
+
+class ChatResponse(BaseModel):
+    message: str
+    tokens_used: dict | None = None
