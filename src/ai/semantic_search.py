@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from pathlib import Path
 
+import numpy as np
 import structlog
 
 from src.config import settings
@@ -12,21 +15,99 @@ logger = structlog.get_logger()
 
 _embedding_model = None
 
+_MODELSCOPE_MAP = {
+    "maidalun1020/bce-embedding-base_v1": "netease-youdao/bce-embedding-base_v1",
+}
+
+
+def _modelscope_model_path(hf_name: str) -> str | None:
+    ms_name = _MODELSCOPE_MAP.get(hf_name)
+    if not ms_name:
+        return None
+    candidate = os.path.join(
+        os.path.expanduser("~"), ".cache", "modelscope", "hub", "models", ms_name,
+    )
+    if os.path.isdir(candidate):
+        return candidate
+    return None
+
+
+class _OnnxEmbeddingModel:
+    """Lightweight wrapper around an ONNX embedding model with SentencePiece tokenizer."""
+
+    def __init__(self, model_dir: str):
+        import onnxruntime as ort
+        self._session = ort.InferenceSession(
+            os.path.join(model_dir, "embed.onnx"),
+            providers=["CPUExecutionProvider"],
+        )
+        from sentencepiece import SentencePieceProcessor
+        self._sp = SentencePieceProcessor()
+        self._sp.Load(os.path.join(model_dir, "sentencepiece.bpe.model"))
+        self._dim = 768
+
+    def encode(self, texts: list[str], normalize_embeddings: bool = True) -> np.ndarray:
+        input_ids_list: list[list[int]] = []
+        attention_mask_list: list[list[int]] = []
+        max_len = 0
+        for text in texts:
+            ids = self._sp.EncodeAsIds(text)
+            ids = [0] + ids + [2]  # <s> + tokens + </s>
+            if len(ids) > 512:
+                ids = ids[:512]
+            input_ids_list.append(ids)
+            max_len = max(max_len, len(ids))
+        for ids in input_ids_list:
+            pad_len = max_len - len(ids)
+            attention_mask_list.append([1] * len(ids) + [0] * pad_len)
+            ids.extend([1] * pad_len)  # pad_token_id = 1
+        input_ids = np.array(input_ids_list, dtype=np.int64)
+        attention_mask = np.array(attention_mask_list, dtype=np.int64)
+
+        ort_inputs = {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+        }
+        # Model outputs: [token_states (b,s,768) float16, cls_embedding (b,768) float16]
+        token_states, _ = self._session.run(None, ort_inputs)
+        hidden = token_states.astype(np.float32)
+
+        # Mean pooling over valid tokens (excluding padding)
+        mask = np.expand_dims(attention_mask.astype(np.float32), -1)
+        summed = (hidden * mask).sum(axis=1)
+        counts = mask.sum(axis=1).clip(min=1)
+        embeddings = summed / counts
+
+        if normalize_embeddings:
+            norms = np.linalg.norm(embeddings, axis=1, keepdims=True).clip(min=1e-9)
+            embeddings = embeddings / norms
+        return embeddings
+
 
 def _get_embedding_model():
     global _embedding_model
     if _embedding_model is not None:
         return _embedding_model
+    # Try sentence_transformers first (HF model)
     try:
         from sentence_transformers import SentenceTransformer
         _embedding_model = SentenceTransformer(settings.search_embedding_model)
         logger.info("embedding_model_loaded", model=settings.search_embedding_model)
+        return _embedding_model
     except ImportError:
         logger.debug("sentence_transformers_not_installed")
-        _embedding_model = False
     except Exception as e:
-        logger.warning("embedding_model_failed", error=str(e))
-        _embedding_model = False
+        logger.debug("hf_embedding_failed", error=str(e))
+    # Fallback: load ONNX model from ModelScope cache
+    local_path = _modelscope_model_path(settings.search_embedding_model)
+    if local_path:
+        try:
+            _embedding_model = _OnnxEmbeddingModel(local_path)
+            logger.info("embedding_model_loaded_onnx", path=local_path)
+            return _embedding_model
+        except Exception as e:
+            logger.warning("onnx_embedding_failed", error=str(e))
+    _embedding_model = False
     return _embedding_model
 
 
