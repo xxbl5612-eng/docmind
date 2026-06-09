@@ -186,3 +186,76 @@ class TestSemanticSearch:
                 with patch("src.services.search_service.load_index", return_value=(faiss_index, meta)):
                     result = semantic_search("query", "doc-id")
                     assert result == []
+
+
+class TestBM25Scoring:
+    def test_bm25_simple_match(self):
+        from src.ai.semantic_search import _bm25_score
+        score = _bm25_score("document processing", "This is a document about processing pipelines")
+        assert score > 0
+
+    def test_bm25_no_match(self):
+        from src.ai.semantic_search import _bm25_score
+        score = _bm25_score("quantum physics", "This is about cooking recipes")
+        assert score == 0.0
+
+
+class TestHighlighting:
+    def test_highlight_query_terms(self):
+        from src.ai.semantic_search import _highlight_query_terms
+        text = "The document processing system uses AI for smart analysis of documents"
+        snippets = _highlight_query_terms(text, "document AI")
+        assert len(snippets) > 0
+        assert any("<<" in s for s in snippets)
+
+    def test_highlight_no_match(self):
+        from src.ai.semantic_search import _highlight_query_terms
+        snippets = _highlight_query_terms("hello world", "xyzzy")
+        assert snippets == []
+
+
+class TestTokenize:
+    def test_tokenize_english(self):
+        from src.ai.semantic_search import _tokenize
+        tokens = _tokenize("The quick brown fox")
+        assert "the" in tokens
+        assert "fox" in tokens
+
+    def test_tokenize_chinese(self):
+        from src.ai.semantic_search import _tokenize
+        tokens = _tokenize("智能文档处理")
+        assert "文" in tokens
+        assert "档" in tokens
+
+
+class TestHybridSearch:
+    def test_returns_empty_when_model_unavailable(self):
+        from src.ai.semantic_search import hybrid_search
+        with patch("src.ai.semantic_search._get_embedding_model", return_value=False):
+            result = hybrid_search("query", "doc-id")
+            assert result == []
+
+    def test_returns_empty_when_index_not_found(self):
+        from src.ai.semantic_search import hybrid_search
+        mock_model = MagicMock()
+        with patch("src.ai.semantic_search._get_embedding_model", return_value=mock_model):
+            with patch("src.services.search_service.index_exists", return_value=False):
+                result = hybrid_search("query", "doc-id")
+                assert result == []
+
+    def test_results_include_dual_scores(self):
+        from src.ai.semantic_search import hybrid_search
+        mock_model = MagicMock()
+        mock_model.encode.return_value = np.array([[0.1, 0.2, 0.3]], dtype=np.float32)
+        faiss_index = MagicMock()
+        faiss_index.ntotal = 5
+        faiss_index.search.return_value = (np.array([[0.9]]), np.array([[0]]))
+        meta = [{"index": 0, "text": "document processing with AI technology"}]
+        with patch("src.ai.semantic_search._get_embedding_model", return_value=mock_model):
+            with patch("src.services.search_service.index_exists", return_value=True):
+                with patch("src.services.search_service.load_index", return_value=(faiss_index, meta)):
+                    results = hybrid_search("document AI", "doc-id", top_k=1, vector_weight=0.5)
+                    assert len(results) == 1
+                    r = results[0]
+                    assert 0 <= r.keyword_score <= 1
+                    assert 0 <= r.vector_score <= 1

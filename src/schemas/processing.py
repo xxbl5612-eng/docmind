@@ -134,18 +134,32 @@ class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
     top_k: int = Field(default=5, ge=1, le=50)
     threshold: float = Field(default=0.3, ge=0.0, le=1.0)
+    mode: str = Field(default="hybrid", pattern=r"^(semantic|hybrid)$")
+    vector_weight: float = Field(default=0.7, ge=0.0, le=1.0)
 
 
 class SearchResultItem(BaseModel):
     chunk_index: int
     text: str
     score: float
+    highlights: list[str] | None = None
+    keyword_score: float | None = None
+    vector_score: float | None = None
+    doc_id: str | None = None
+    doc_title: str | None = None
 
 
 class SearchResponse(BaseModel):
     query: str
     results: list[SearchResultItem]
     total_chunks_searched: int
+
+
+class CrossDocSearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=2000)
+    top_k_per_doc: int = Field(default=5, ge=1, le=20)
+    max_docs: int = Field(default=10, ge=1, le=50)
+    vector_weight: float = Field(default=0.7, ge=0.0, le=1.0)
 
 
 class SearchQARequest(BaseModel):

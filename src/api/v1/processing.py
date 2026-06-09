@@ -264,7 +264,7 @@ async def semantic_search_doc(
     db: AsyncSession = Depends(get_db),
     cache: CacheManager = Depends(get_cache),
 ):
-    from src.ai.semantic_search import semantic_search, search_available
+    from src.ai.semantic_search import hybrid_search, semantic_search, search_available
     from src.services.search_service import index_exists, auto_index_on_upload
 
     if not search_available():
@@ -275,7 +275,6 @@ async def semantic_search_doc(
 
     doc_id = str(doc.id)
     if not index_exists(doc_id):
-        # Try to auto-build index on first search
         doc_svc = DocumentService(db, cache)
         content = await doc_svc.get_content(doc.id, current_user.id)
         if content:
@@ -286,13 +285,57 @@ async def semantic_search_doc(
                     detail="Search index not yet built. Try POST /search/index first.",
                 )
 
-    results = semantic_search(body.query, doc_id, body.top_k or settings.search_top_k)
+    if body.mode == "hybrid":
+        results = hybrid_search(body.query, doc_id, body.top_k, body.vector_weight)
+    else:
+        results = semantic_search(body.query, doc_id, body.top_k)
     await _log_operation(db, cache, current_user, doc.id, "search.query")
     return APIResponse(
         success=True,
         data=SearchResponse(
             query=body.query,
-            results=[SearchResultItem(chunk_index=r.chunk_index, text=r.text, score=r.score) for r in results],
+            results=[SearchResultItem(
+                chunk_index=r.chunk_index, text=r.text, score=r.score,
+                highlights=r.highlights, keyword_score=r.keyword_score,
+                vector_score=r.vector_score, doc_id=r.doc_id, doc_title=r.doc_title,
+            ) for r in results],
+            total_chunks_searched=len(results),
+        ),
+    )
+
+
+@router.post("/search/cross-doc", response_model=APIResponse[SearchResponse])
+async def cross_document_search_endpoint(
+    body: CrossDocSearchRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+    cache: CacheManager = Depends(get_cache),
+):
+    """Search across all indexed documents owned by the current user."""
+    from src.ai.semantic_search import cross_document_search, search_available
+
+    if not search_available():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Semantic search is not available.",
+        )
+
+    results = cross_document_search(
+        body.query, str(current_user.id),
+        top_k_per_doc=body.top_k_per_doc,
+        max_docs=body.max_docs,
+        vector_weight=body.vector_weight,
+    )
+    await _log_operation(db, cache, current_user, None, "search.cross_doc")
+    return APIResponse(
+        success=True,
+        data=SearchResponse(
+            query=body.query,
+            results=[SearchResultItem(
+                chunk_index=r.chunk_index, text=r.text, score=r.score,
+                highlights=r.highlights, keyword_score=r.keyword_score,
+                vector_score=r.vector_score, doc_id=r.doc_id, doc_title=r.doc_title,
+            ) for r in results],
             total_chunks_searched=len(results),
         ),
     )
