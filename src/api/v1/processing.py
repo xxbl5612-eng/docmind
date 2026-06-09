@@ -191,18 +191,34 @@ async def ai_ocr(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Original file not found")
 
     engine = body.engine
-    language = body.language
+    language = body.language if body.language != "auto" else "ch"
     result_text = ""
     tables = None
+    barcodes = None
+    detected_lang = None
+    lines = None
+    page_count = None
 
     if doc.input_format in ("png", "jpg", "jpeg"):
-        from src.ai.ocr import ocr_image_unified
-        result_text = ocr_image_unified(original_bytes, engine=engine, language=language)
-        engine_used = "paddle" if engine in ("paddle", "auto") else "easyocr"
+        from src.services.ocr_service import ocr_image
+        ocr_result = ocr_image(original_bytes, engine=engine, language=language,
+                              min_confidence=body.min_confidence)
+        result_text = ocr_result["text"]
+        engine_used = ocr_result["engine_used"]
+        lines = ocr_result.get("lines")
+        if body.language == "auto" and result_text:
+            from src.services.ocr_service import detect_language
+            detected_lang = detect_language(result_text)
     elif doc.input_format == "pdf":
-        from src.ai.ocr import ocr_pdf_unified
-        result_text = ocr_pdf_unified(original_bytes, engine=engine, language=language)
-        engine_used = "paddle" if engine in ("paddle", "auto") else "easyocr"
+        from src.services.ocr_service import ocr_pdf
+        ocr_result = ocr_pdf(original_bytes, engine=engine, language=language,
+                            min_confidence=body.min_confidence)
+        result_text = ocr_result["text"]
+        engine_used = ocr_result["engine_used"]
+        page_count = len(ocr_result.get("pages", []))
+        if body.language == "auto" and result_text:
+            from src.services.ocr_service import detect_language
+            detected_lang = detect_language(result_text)
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail=f"OCR is only supported for PDF and image formats, not {doc.input_format}")
@@ -210,7 +226,18 @@ async def ai_ocr(
     if body.detect_tables and result_text and engine in ("paddle", "auto"):
         try:
             from src.services.ocr_service import ocr_table
-            tables = ocr_table(original_bytes)
+            tables = ocr_table(original_bytes, output_format=body.table_format,
+                             min_confidence=body.min_confidence)
+        except Exception:
+            pass
+
+    if body.detect_barcodes:
+        try:
+            from src.services.ocr_service import detect_barcodes, detect_barcodes_in_pdf
+            if doc.input_format == "pdf":
+                barcodes = detect_barcodes_in_pdf(original_bytes)
+            else:
+                barcodes = detect_barcodes(original_bytes)
         except Exception:
             pass
 
@@ -219,7 +246,9 @@ async def ai_ocr(
         success=True,
         data=OCRResponse(
             text=result_text, engine_used=engine_used,
-            char_count=len(result_text), tables=tables,
+            detected_language=detected_lang,
+            page_count=page_count,
+            char_count=len(result_text), tables=tables, barcodes=barcodes, lines=lines,
         ),
     )
 

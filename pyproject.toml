@@ -55,6 +55,7 @@ ocr = [
     "paddleocr>=2.9",
     "paddlepaddle>=2.6",
     "pdf2image>=1.17",
+    "pyzbar>=0.1",
 ]
 search = [
     "faiss-cpu>=1.9",

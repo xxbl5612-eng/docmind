@@ -102,16 +102,22 @@ class TaskStatusResponse(BaseModel):
 
 class OCRRequest(BaseModel):
     engine: str = Field(default="auto", pattern=r"^(paddle|easyocr|auto)$")
-    language: str = Field(default="ch", pattern=r"^(ch|en|ch_en)$")
+    language: str = Field(default="auto", pattern=r"^(auto|ch|en|ch_en)$")
     detect_tables: bool = True
+    table_format: str = Field(default="cells", pattern=r"^(cells|csv|markdown)$")
+    min_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    detect_barcodes: bool = False
 
 
 class OCRResponse(BaseModel):
     text: str
     engine_used: str
+    detected_language: str | None = None
     page_count: int | None = None
     tables: list[dict] | None = None
+    barcodes: list[dict] | None = None
     char_count: int
+    lines: list[dict] | None = None
 
 
 class ChatMessage(BaseModel):
