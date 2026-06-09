@@ -153,6 +153,15 @@ export const collabApi = {
     api.delete(`/documents/${docId}/collaboration/${sessionId}/user/${userId}`),
   deleteSession: (docId: string, sessionId: string) =>
     api.delete(`/documents/${docId}/collaboration/${sessionId}`),
+  leave: (docId: string) =>
+    api.delete(`/documents/${docId}/collaboration/leave`),
+};
+
+// Invitations
+export const invitationApi = {
+  list: () => api.get('/collaboration/invitations/'),
+  accept: (id: string) => api.post(`/collaboration/invitations/${id}/accept`),
+  reject: (id: string) => api.post(`/collaboration/invitations/${id}/reject`),
 };
 
 // Operations
@@ -195,10 +204,40 @@ export const slideApi = {
     api.get(`/documents/${docId}/slides/${slideIdx}/images/${imageIdx}`, { responseType: 'blob' }),
 };
 
+// PDF Operations
+export const pdfApi = {
+  compress: (docId: string, quality: string = 'screen') =>
+    api.post(`/documents/${docId}/pdf/compress`, { quality }),
+  watermark: (docId: string, text: string, opacity?: number, rotation?: number) =>
+    api.post(`/documents/${docId}/pdf/watermark`, { text, opacity, rotation }),
+  encrypt: (docId: string, password: string) =>
+    api.post(`/documents/${docId}/pdf/encrypt`, { password }),
+  merge: (document_ids: string[]) =>
+    api.post('/documents/pdf/merge', { document_ids }),
+};
+
 // Health
 export const healthApi = {
   check: () => api.get('/health'),
   ready: () => api.get('/health/ready'),
+};
+
+// Semantic Search
+export const searchApi = {
+  search: (docId: string, query: string, top_k?: number) =>
+    api.post(`/documents/${docId}/ai/search`, { query, top_k }),
+  searchQA: (docId: string, question: string, top_k?: number) =>
+    api.post(`/documents/${docId}/ai/search/qa`, { question, top_k }),
+  buildIndex: (docId: string) =>
+    api.post(`/documents/${docId}/ai/search/index`),
+  deleteIndex: (docId: string) =>
+    api.delete(`/documents/${docId}/ai/search/index`),
+};
+
+// AI Chat Assistant
+export const chatApi = {
+  send: (messages: { role: string; content: string }[], documentId?: string | null) =>
+    api.post('/ai/chat', { messages, document_id: documentId }),
 };
 
 export default api;

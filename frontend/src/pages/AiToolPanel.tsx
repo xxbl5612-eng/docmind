@@ -6,9 +6,10 @@ import { aiApi } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
+import SemanticSearch from '@/components/search/SemanticSearch';
 import type { ApiResponse, AsyncTaskResponse, TaskStatus, Document } from '@/types';
 
-type AiTool = 'proofread' | 'rewrite' | 'summarize' | 'extract' | 'convert' | 'qa';
+type AiTool = 'proofread' | 'rewrite' | 'summarize' | 'extract' | 'convert' | 'qa' | 'search';
 
 const aiToolIcons: Record<AiTool, string> = {
   proofread: 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
@@ -17,9 +18,10 @@ const aiToolIcons: Record<AiTool, string> = {
   extract: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z',
   convert: 'M7.5 7.5h-.75A2.25 2.25 0 004.5 9.75v7.5a2.25 2.25 0 002.25 2.25h7.5a2.25 2.25 0 002.25-2.25v-7.5a2.25 2.25 0 00-2.25-2.25h-.75m-6 3.75l3-3m0 0l3 3m-3-3v10.5',
   qa: 'M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  search: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z',
 };
 
-const aiTools: AiTool[] = ['proofread', 'rewrite', 'summarize', 'extract', 'convert', 'qa'];
+const aiTools: AiTool[] = ['proofread', 'rewrite', 'summarize', 'extract', 'convert', 'qa', 'search'];
 
 function formatNumber(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
@@ -97,7 +99,29 @@ export default function AiToolPanel({ docId, doc, onClose }: Props) {
   const [summarizeOpts, setSummarizeOpts] = useState({ length: 'medium', format: 'paragraph' });
   const [extractType, setExtractType] = useState('entities');
   const [convertFormat, setConvertFormat] = useState('docx');
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfPath, setPdfPath] = useState<string | null>(null);
   const [question, setQuestion] = useState('');
+
+  const downloadPdf = async () => {
+    if (!pdfPath || !docId) return;
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(`/api/v1/documents/${docId}/ai/convert/download?path=${encodeURIComponent(pdfPath)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'converted.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast(t('editor.task_failed'), 'error');
+    }
+  };
 
   useEffect(() => {
     if (!taskId) return;
@@ -115,7 +139,7 @@ export default function AiToolPanel({ docId, doc, onClose }: Props) {
               toast(t('editor.task_completed'), 'success');
               handleToolResult(res.data.result_summary);
             } else {
-              toast(res.data.error_message || t('editor.task_failed'), 'error');
+              toast(res.data.error_message || res.data.error || t('editor.task_failed'), 'error');
             }
           }
         }
@@ -126,6 +150,19 @@ export default function AiToolPanel({ docId, doc, onClose }: Props) {
 
   const handleToolResult = (result: Record<string, unknown> | null) => {
     if (!result) return;
+    // PDF / Pandoc output: show download link instead of raw text
+    const outputPath = result.output_path || result.pdf_path;
+    if (outputPath) {
+      setPdfPath(String(outputPath));
+      setPdfUrl(null);
+      setToolResult(null);
+      setResultStats({
+        'File Size': `${Math.round(Number(result.pdf_size_bytes || result.output_size_bytes || 0) / 1024)} KB`,
+        'Target Format': String(result.target_format || 'pdf'),
+        'Engine': String(result.engine || 'ai'),
+      });
+      return;
+    }
     const contentKeys = ['summary', 'rewritten_text', 'proofread_text', 'extracted_data', 'answer', 'content', 'converted_content'];
     let displayContent = '';
     const stats: Record<string, unknown> = {};
@@ -149,6 +186,8 @@ export default function AiToolPanel({ docId, doc, onClose }: Props) {
     setResultTab('result');
     setTaskStatus(null);
     setTaskId(null);
+    setPdfUrl(null);
+    setPdfPath(null);
     try {
       let payload: Record<string, unknown> = {};
       switch (activeTool) {
@@ -188,9 +227,10 @@ export default function AiToolPanel({ docId, doc, onClose }: Props) {
         queryClient.invalidateQueries({ queryKey: ['usage'] });
         toast(`${t(`editor.${activeTool}`)} ${t('editor.completed')}`, 'success');
       }
-    } catch {
+    } catch (err: unknown) {
       setProcessing(false);
-      toast(t('editor.task_failed'), 'error');
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || t('editor.task_failed');
+      toast(msg, 'error');
     }
   };
 
@@ -296,7 +336,12 @@ export default function AiToolPanel({ docId, doc, onClose }: Props) {
               <textarea value={question} onChange={(e) => setQuestion(e.target.value)} className="w-full rounded-lg border border-surface-300 px-3 py-2 text-sm resize-none h-24" placeholder={t('editor.question_placeholder')} />
             </div>
           )}
+          {activeTool === 'search' && (
+            <SemanticSearch docId={docId} />
+          )}
+          {activeTool !== 'search' && (
           <Button onClick={runAiTool} loading={processing} className="w-full">{t('editor.run')} {t(`editor.${activeTool}`)}</Button>
+          )}
 
           {taskStatus && (
             <div className="bg-surface-50 rounded-lg p-3">
@@ -314,6 +359,18 @@ export default function AiToolPanel({ docId, doc, onClose }: Props) {
             </div>
           )}
 
+          {pdfPath && (
+            <div className="bg-white rounded-lg border border-surface-200 p-4">
+              <p className="text-sm font-medium text-surface-700 mb-3">{t('editor.pdf_ready') || 'PDF 已生成'}</p>
+              <button
+                onClick={downloadPdf}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                {t('editor.download_pdf') || '下载 PDF'}
+              </button>
+            </div>
+          )}
           {toolResult && (
             <div className="bg-white rounded-lg border border-surface-200">
               <div className="flex border-b border-surface-200">

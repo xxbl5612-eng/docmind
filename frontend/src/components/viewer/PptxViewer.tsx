@@ -7,6 +7,34 @@ interface Props {
   docId: string;
 }
 
+function SlideImage({ docId, slideIdx }: { docId: string; slideIdx: number }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        const res = await fetch(`/api/v1/documents/${docId}/slides/render/${slideIdx}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error('Failed');
+        const blob = await res.blob();
+        if (!cancelled) setUrl(URL.createObjectURL(blob));
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    };
+    load();
+    return () => { cancelled = true; if (url) URL.revokeObjectURL(url); };
+  }, [docId, slideIdx]);
+
+  if (error) return <div className="flex items-center justify-center h-full text-surface-400 text-sm">加载失败</div>;
+  if (!url) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-2 border-slate-300 border-t-primary-500 rounded-full animate-spin" /></div>;
+  return <img src={url} alt={`Slide ${slideIdx + 1}`} className="max-w-full max-h-full shadow-xl rounded" />;
+}
+
 function ShapeImage({ docId, slideIdx, imageIdx, maxW, maxH }: {
   docId: string; slideIdx: number; imageIdx: number; maxW: number; maxH: number;
 }) {
@@ -287,6 +315,49 @@ export default function PptxViewer({ docId }: Props) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [renderMode, setRenderMode] = useState<'interactive' | 'pandoc' | 'images'>('images');
+  const [pandocHtml, setPandocHtml] = useState<string | null>(null);
+  const [pandocLoading, setPandocLoading] = useState(false);
+  const [slideImageCount, setSlideImageCount] = useState(0);
+  const [imageSlides, setImageSlides] = useState<number[]>([]);
+
+  // Load rendered slide count on mount
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    fetch(`/api/v1/documents/${docId}/slides/render-count`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.data?.count) {
+          setSlideImageCount(d.data.count);
+          setImageSlides(Array.from({ length: d.data.count }, (_, i) => i));
+        }
+      })
+      .catch(() => {});
+  }, [docId]);
+
+  const loadPandocRender = useCallback(async () => {
+    if (pandocHtml) { setRenderMode('pandoc'); return; }
+    setPandocLoading(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(`/api/v1/documents/${docId}/pandoc-render`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setPandocHtml(await res.text());
+        setRenderMode('pandoc');
+      }
+    } catch { /* ignore */ }
+    finally { setPandocLoading(false); }
+  }, [docId, pandocHtml]);
+
+  // Build slide image URL
+  const slideImageUrl = (idx: number) => {
+    const token = localStorage.getItem('access_token');
+    return `/api/v1/documents/${docId}/slides/render/${idx}`;
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -344,12 +415,92 @@ export default function PptxViewer({ docId }: Props) {
   if (slides.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-surface-400 text-sm">
-        Non-slides
+        No slides
       </div>
     );
   }
 
   const slide = slides[currentSlide];
+
+  // Image rendering mode: high-fidelity PNG images via Pandoc + PyMuPDF
+  // Image render mode: PowerPoint COM → PNG, displayed via authenticated fetch
+  if (renderMode === 'images') {
+    const totalSlides = slides.length || slideImageCount;
+    return (
+      <div className="flex flex-col h-full bg-slate-100">
+        <div className="flex flex-1 overflow-hidden">
+          {/* Thumbnail numbers */}
+          <div className="w-32 flex-shrink-0 overflow-y-auto bg-slate-200/70 border-r border-slate-200 p-2 space-y-1 hidden sm:block">
+            {Array.from({ length: totalSlides }, (_, i) => (
+              <div key={i} onClick={() => goTo(i)}
+                className={`cursor-pointer rounded-lg px-3 py-2 text-center text-sm font-medium transition-all ${
+                  i === currentSlide ? 'bg-primary-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-300/50'
+                }`}>
+                {i + 1}
+              </div>
+            ))}
+          </div>
+          {/* Main slide - PowerPoint rendered PNG */}
+          <div className="flex-1 overflow-auto p-4 sm:p-6 flex items-start justify-center bg-slate-50">
+            <SlideImage docId={docId} slideIdx={currentSlide} />
+          </div>
+        </div>
+        {/* Nav */}
+        <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-200 bg-white">
+          <div className="flex items-center gap-2">
+            <button onClick={() => goTo(0)} disabled={currentSlide === 0}
+              className="px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 rounded disabled:opacity-30 cursor-pointer">|&lt;</button>
+            <button onClick={() => goTo(currentSlide - 1)} disabled={currentSlide === 0}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-30 cursor-pointer">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              {t('editor.prev')}
+            </button>
+            <button onClick={() => goTo(currentSlide + 1)} disabled={currentSlide >= totalSlides - 1}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-30 cursor-pointer">
+              {t('editor.next')}
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+            <button onClick={() => goTo(totalSlides - 1)} disabled={currentSlide >= totalSlides - 1}
+              className="px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 rounded disabled:opacity-30 cursor-pointer">&gt;|</button>
+          </div>
+          <span className="text-sm font-medium text-slate-600 tabular-nums">{currentSlide + 1} / {totalSlides}</span>
+          <button onClick={() => setRenderMode('interactive')}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-100 cursor-pointer">交互模式</button>
+        </div>
+      </div>
+    );
+  }
+
+  // Pandoc render mode: high-fidelity HTML in iframe
+  if (renderMode === 'pandoc') {
+    if (pandocLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-4">
+          <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+          <p className="text-surface-500 text-sm">Pandoc 渲染中...</p>
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-col h-full bg-white">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-surface-200 bg-surface-50">
+          <button
+            onClick={() => setRenderMode('interactive')}
+            className="text-sm text-primary-600 hover:text-primary-700 font-medium cursor-pointer"
+          >
+            &larr; 返回交互模式
+          </button>
+          <span className="text-xs text-surface-400 ml-auto">Pandoc 高保真渲染</span>
+        </div>
+        <iframe
+          srcDoc={pandocHtml || ''}
+          className="flex-1 w-full border-0"
+          title="Pandoc Render"
+          sandbox="allow-same-origin"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-slate-100">
@@ -389,16 +540,28 @@ export default function PptxViewer({ docId }: Props) {
 
       {/* Navigation bar */}
       <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-200 bg-white">
-        <button
-          onClick={() => goTo(currentSlide - 1)}
-          disabled={currentSlide === 0}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          {t('editor.prev')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => goTo(currentSlide - 1)}
+            disabled={currentSlide === 0}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            {t('editor.prev')}
+          </button>
+          <button
+            onClick={() => goTo(currentSlide + 1)}
+            disabled={currentSlide >= slides.length - 1}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer"
+          >
+            {t('editor.next')}
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
 
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-slate-600 tabular-nums">
@@ -418,14 +581,15 @@ export default function PptxViewer({ docId }: Props) {
         </div>
 
         <button
-          onClick={() => goTo(currentSlide + 1)}
-          disabled={currentSlide >= slides.length - 1}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer"
+          onClick={() => slideImageCount > 0 ? setRenderMode('images') : loadPandocRender()}
+          disabled={pandocLoading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-50 transition-colors cursor-pointer"
+          title="高保真渲染 - 接近 PowerPoint 的显示效果"
         >
-          {t('editor.next')}
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
+          高保真
         </button>
       </div>
     </div>

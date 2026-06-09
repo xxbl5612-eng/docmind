@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { documentApi, userApi } from '@/lib/api';
+import { documentApi, userApi, collabApi } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [folder, setFolder] = useState('');
   const [page, setPage] = useState(1);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [docFilter, setDocFilter] = useState<'all' | 'mine' | 'shared'>('all');
 
   const { data: docsData, isLoading } = useQuery({
     queryKey: ['documents', page],
@@ -56,6 +57,14 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       toast(t('dashboard.deleted'), 'success');
+    },
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: (id: string) => collabApi.leave(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      toast('已退出协作', 'success');
     },
   });
 
@@ -146,6 +155,18 @@ export default function Dashboard() {
         </div>
       </Modal>
 
+      <div className="flex items-center gap-1 mb-6 bg-surface-100 rounded-lg p-1 w-fit">
+        {(['all', 'mine', 'shared'] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => { setDocFilter(f); setPage(1); }}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${docFilter === f ? 'bg-white text-surface-900 shadow-sm' : 'text-surface-500 hover:text-surface-700'}`}
+          >
+            {f === 'all' ? '全部' : f === 'mine' ? '我的文档' : '共享给我'}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {[...Array(8)].map((_, i) => (
@@ -159,22 +180,48 @@ export default function Dashboard() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {docsData?.items.map((doc: Document) => (
+            {docsData?.items
+              .filter((doc: Document) => {
+                if (docFilter === 'mine') return !doc.is_shared;
+                if (docFilter === 'shared') return doc.is_shared;
+                return true;
+              })
+              .map((doc: Document) => (
               <div
                 key={doc.id}
-                className="bg-white rounded-xl border border-surface-200 p-5 hover:shadow-md transition-shadow group cursor-pointer"
+                className={`bg-white rounded-xl border p-5 hover:shadow-md transition-shadow group cursor-pointer ${doc.is_shared ? 'border-amber-200 bg-amber-50/30' : 'border-surface-200'}`}
                 onClick={() => navigate(`/documents/${doc.id}`)}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <FileIcon format={doc.input_format} />
-                  <button
-                    onClick={(e) => { e.stopPropagation(); if (confirm(t('dashboard.delete_confirm'))) deleteMutation.mutate(doc.id); }}
-                    className="opacity-0 group-hover:opacity-100 text-surface-400 hover:text-red-500 transition-all cursor-pointer"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <FileIcon format={doc.input_format} />
+                    {doc.is_shared && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                        共享
+                      </span>
+                    )}
+                  </div>
+                  {doc.is_shared ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); if (confirm('确定退出该协作文档？')) leaveMutation.mutate(doc.id); }}
+                      className="opacity-0 group-hover:opacity-100 text-surface-400 hover:text-orange-500 transition-all cursor-pointer"
+                      title="退出协作"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); if (confirm(t('dashboard.delete_confirm'))) deleteMutation.mutate(doc.id); }}
+                      className="opacity-0 group-hover:opacity-100 text-surface-400 hover:text-red-500 transition-all cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
                 <h3 className="font-medium text-surface-900 truncate">{doc.title}</h3>
                 <p className="text-sm text-surface-500 mt-1">{doc.input_format.toUpperCase()} &middot; {formatBytes(doc.file_size_bytes)}</p>

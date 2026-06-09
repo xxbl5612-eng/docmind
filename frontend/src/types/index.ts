@@ -36,6 +36,7 @@ export interface Document {
   current_version_id: string | null;
   created_at: string | null;
   updated_at: string | null;
+  is_shared?: boolean;
 }
 
 export interface DocumentContent {
@@ -358,4 +359,83 @@ export interface SlidesResponse {
   slides: SlideData[];
   image_count: number;
   total_slides: number;
+}
+
+// PDF operations
+export interface PdfCompressRequest {
+  quality: 'screen' | 'ebook' | 'printer' | 'prepress';
+}
+
+export interface PdfWatermarkRequest {
+  text: string;
+  opacity?: number;
+  rotation?: number;
+}
+
+export interface PdfEncryptRequest {
+  password: string;
+}
+
+export interface PdfMergeRequest {
+  document_ids: string[];
+}
+
+export interface PdfOperationResponse {
+  download_path: string;
+  size_bytes: number;
+  original_size_bytes: number;
+  compression_ratio: number | null;
+}
+
+// Semantic Search
+export interface SearchRequest {
+  query: string;
+  top_k?: number;
+  threshold?: number;
+}
+
+export interface SearchResultItem {
+  chunk_index: number;
+  text: string;
+  score: number;
+}
+
+export interface SearchResponseData {
+  query: string;
+  results: SearchResultItem[];
+  total_chunks_searched: number;
+}
+
+export interface SearchQARequest {
+  question: string;
+  top_k?: number;
+}
+
+export interface SearchSourceItem {
+  chunk_index: number;
+  text_snippet: string;
+  score: number;
+}
+
+export interface RAGQAResponseData {
+  question: string;
+  answer: string;
+  sources: SearchSourceItem[];
+  tokens_used: Record<string, number>;
+}
+
+// AI Chat Assistant
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface ChatRequest {
+  messages: ChatMessage[];
+  document_id?: string | null;
+}
+
+export interface ChatResponseData {
+  message: string;
+  tokens_used: Record<string, number> | null;
 }
