@@ -312,6 +312,66 @@ def encrypt_pdf(pdf_bytes: bytes, password: str) -> bytes | None:
         return None
 
 
+# ── Page numbering ──
+
+def add_page_numbers(
+    pdf_bytes: bytes,
+    format_str: str = "Page {page} of {total}",
+    font_size: int = 8,
+) -> bytes | None:
+    """Stamp page numbers onto an existing PDF using PyPDF2."""
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        writer = PdfWriter()
+        total = len(reader.pages)
+
+        for i, page in enumerate(reader.pages):
+            pw = float(page.mediabox.width)
+            ph = float(page.mediabox.height)
+            text = format_str.format(page=i + 1, total=total)
+
+            # Build a minimal page-number PDF overlay
+            content = (
+                "q\n"
+                "BT\n"
+                f"/F1 {font_size:.1f} Tf\n"
+                "0.5 0.5 0.5 rg\n"
+                f"1 0 0 1 {pw / 2 - len(text) * font_size * 0.2:.1f} 20 Tm\n"
+                f"({text}) Tj\n"
+                "ET\n"
+                "Q\n"
+            )
+            pn_bytes = f"""%PDF-1.7
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
+3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 {pw:.0f} {ph:.0f}]/Contents 4 0 R/Resources<</Font<</F1<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>>>>>>>endobj
+4 0 obj<</Length {len(content.encode())}>>stream
+{content}
+endstream endobj
+xref
+0 5
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+0000000320 00000 n
+trailer<</Size 5/Root 1 0 R>>
+startxref
+420
+%%EOF"""
+            pn_reader = PdfReader(io.BytesIO(pn_bytes.encode()))
+            page.merge_page(pn_reader.pages[0])
+            writer.add_page(page)
+
+        out = io.BytesIO()
+        writer.write(out)
+        logger.info("page_numbers_added", pages=total)
+        return out.getvalue()
+    except Exception as e:
+        logger.warning("page_numbers_failed", error=str(e))
+        return None
+
+
 # ── PyPDF2 merge ──
 
 def merge_pdfs(pdf_list: list[bytes]) -> bytes | None:

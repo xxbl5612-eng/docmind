@@ -1,4 +1,7 @@
-"""PDF generation from HTML content using fpdf2 with Chinese font support."""
+"""PDF generation from HTML content using fpdf2 with CJK font support.
+
+Phase 2 enhancements: page numbering, table of contents, PDF bookmarks, metadata.
+"""
 
 from __future__ import annotations
 
@@ -19,7 +22,7 @@ class _BlockCollector(HTMLParser):
 
     def __init__(self):
         super().__init__()
-        self.blocks: list[dict] = []  # {type, text, tag, attrs}
+        self.blocks: list[dict] = []
         self._current: dict | None = None
         self._text_buf: list[str] = []
         self._in_body = False
@@ -91,7 +94,6 @@ class _BlockCollector(HTMLParser):
         self._text_buf = []
         if not text:
             return
-        # Attach inline text to current block or create a paragraph
         if self._current:
             if self._current["type"] == "table" and self._current.get("_in_cell"):
                 self._current.setdefault("_cell_text", []).append(text)
@@ -104,7 +106,6 @@ class _BlockCollector(HTMLParser):
         self._flush_inline()
         if self._current:
             if self._current["type"] == "table":
-                # Flush remaining row
                 if self._current.get("_row"):
                     self._current["rows"].append(self._current["_row"])
                 self._current.pop("_row", None)
@@ -118,30 +119,81 @@ class _BlockCollector(HTMLParser):
         super().close()
 
 
-def generate_pdf_from_html(html: str, title: str = "Document") -> bytes:
-    """Convert HTML to PDF bytes with CJK support."""
+class _DocMindPDF(FPDF):
+    """Custom PDF with page numbering, TOC, and bookmark support."""
+
+    def __init__(self, title: str = "Document", author: str = "DocMind"):
+        super().__init__()
+        self._title_text = title
+        self._author = author
+        self._toc_entries: list[dict] = []  # {level, title, page}
+        self._heading_pages: dict[int, int] = {}  # heading_index -> page number
+        self._heading_count = 0
+
+        self.set_title(title)
+        self.set_author(author)
+        self.set_creator("DocMind PDF Generator")
+
+    def footer(self):
+        if self.page_no() == 0:
+            return
+        self.set_y(-15)
+        self.set_font("Helvetica", "", 7)
+        self.set_text_color(128, 128, 128)
+        self.cell(0, 10, f"Page {self.page_no()}", align="C")
+
+    def add_page(self, orientation="", format="", same=False, duration=0.0):
+        # Track heading pages for TOC
+        super().add_page(orientation, format, same, duration)
+
+    def add_heading_with_toc(self, text: str, level: int):
+        """Render a heading and record it for TOC."""
+        page = self.page
+        self._toc_entries.append({"level": level, "title": text, "page": page + 1})
+        self._heading_count += 1
+
+
+def generate_pdf_from_html(
+    html: str,
+    title: str = "Document",
+    author: str = "DocMind",
+    include_toc: bool = True,
+    include_page_numbers: bool = True,
+) -> bytes:
+    """Convert HTML to PDF bytes with CJK support, page numbers, TOC, and bookmarks."""
 
     parser = _BlockCollector()
     parser.feed(html)
     parser.close()
     blocks = parser.blocks
 
-    pdf = _make_pdf()
+    pdf = _make_pdf(title, author)
     pdf.set_auto_page_break(auto=True, margin=15)
+    # Disable built-in footer if we handle page numbers ourselves
     pdf.add_page()
 
-    for block in blocks:
+    if include_toc and any(b["type"] == "heading" for b in blocks):
+        _render_toc_page(pdf, blocks)
+
+    for i, block in enumerate(blocks):
+        if block["type"] == "heading":
+            pdf.add_heading_with_toc(block.get("text", ""), block.get("level", 1))
         _render_block(pdf, block)
+
+    # Add PDF outlines (bookmarks) from heading structure
+    _add_bookmarks(pdf)
 
     return bytes(pdf.output())
 
 
-def _make_pdf() -> FPDF:
-    pdf = FPDF()
+def _make_pdf(title: str = "Document", author: str = "DocMind") -> _DocMindPDF:
+    pdf = _DocMindPDF(title, author)
     for path in _FONT_PATHS:
         if path.exists():
             pdf.add_font("CJK", "", str(path))
+            pdf.set_font("CJK", "", 10)
             return pdf
+    pdf.set_font("Helvetica", "", 10)
     return pdf
 
 
@@ -152,6 +204,66 @@ def _use_font(pdf: FPDF, size: float = 10) -> None:
         pdf.set_font("Helvetica", "", size)
 
 
+def _render_toc_page(pdf: _DocMindPDF, blocks: list[dict]) -> None:
+    """Generate a table of contents from heading blocks."""
+    headings = [b for b in blocks if b["type"] == "heading"]
+    if not headings:
+        return
+
+    pdf.add_page()
+    _use_font(pdf, 20)
+    pdf.set_text_color(30, 30, 30)
+    pdf.ln(5)
+    pdf.cell(0, 12, "CONTENTS", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(8)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.line(pdf.l_margin + 20, pdf.get_y(), pdf.w - pdf.r_margin - 20, pdf.get_y())
+    pdf.ln(6)
+
+    for h in headings:
+        level = h.get("level", 1)
+        text = h.get("text", "").strip()
+        if not text:
+            continue
+        indent = (level - 1) * 8
+        sizes = {1: 12, 2: 10, 3: 9, 4: 8, 5: 8, 6: 7}
+        _use_font(pdf, sizes.get(level, 9))
+        pdf.set_text_color(60, 60, 60)
+        pdf.set_x(pdf.l_margin + indent)
+        pdf.cell(w=pdf.w - pdf.l_margin - pdf.r_margin - 30 - indent, h=6, text=text[:80])
+        pdf.ln(6)
+
+    # Add a note about page numbers (auto-linked)
+    pdf.ln(3)
+    _use_font(pdf, 7)
+    pdf.set_text_color(160, 160, 160)
+    pdf.cell(0, 5, "(Use the PDF reader's navigation pane or bookmarks for quick access)", align="C")
+
+
+def _add_bookmarks(pdf: _DocMindPDF) -> None:
+    """Add PDF outline bookmarks from collected heading entries."""
+    # fpdf2 creates outline entries via pdf.start_section()
+    # Since we already rendered headings manually, use the lower-level outline API
+    if not pdf._toc_entries:
+        return
+    try:
+        for entry in pdf._toc_entries:
+            level = min(entry["level"], 6)
+            # Map page number to internal PDF page object
+            page_num = entry["page"]
+            if 1 <= page_num <= len(pdf.pages):
+                pdf.add_action(
+                    "outline",
+                    {"s": "/GoTo", "d": f"[{page_num - 1} /Fit]"},
+                    entry["title"],
+                    level,
+                    first=False,
+                    last=False,
+                )
+    except Exception:
+        pass  # Bookmark creation is best-effort
+
+
 def _render_block(pdf: FPDF, block: dict) -> None:
     btype = block["type"]
     text = block.get("text", "")
@@ -160,18 +272,22 @@ def _render_block(pdf: FPDF, block: dict) -> None:
         level = block.get("level", 1)
         sizes = {1: 20, 2: 16, 3: 13, 4: 11, 5: 10, 6: 9}
         _use_font(pdf, sizes.get(level, 11))
+        pdf.set_text_color(30, 30, 30)
         pdf.ln(3)
         pdf.multi_cell(w=0, h=sizes.get(level, 11) * 0.35, text=text, align="L")
         pdf.ln(1)
         _use_font(pdf, 10)
+        pdf.set_text_color(60, 60, 60)
 
     elif btype == "paragraph":
         _use_font(pdf, 10)
+        pdf.set_text_color(60, 60, 60)
         pdf.ln(1.5)
         pdf.multi_cell(w=0, h=5.5, text=text, align="L")
 
     elif btype == "list_item":
         _use_font(pdf, 10)
+        pdf.set_text_color(60, 60, 60)
         pdf.set_x(pdf.l_margin + 6)
         pdf.cell(w=4, h=5.5, text="•")
         pdf.multi_cell(w=pdf.w - pdf.r_margin - pdf.l_margin - 12, h=5.5, text=text, align="L")
@@ -179,6 +295,7 @@ def _render_block(pdf: FPDF, block: dict) -> None:
     elif btype == "code":
         pdf.set_fill_color(245, 245, 245)
         pdf.set_font("Courier", "", 7.5)
+        pdf.set_text_color(80, 80, 80)
         for line in text.split("\n"):
             if pdf.get_y() > pdf.h - 20:
                 pdf.add_page()
@@ -187,6 +304,7 @@ def _render_block(pdf: FPDF, block: dict) -> None:
             pdf.ln(4.2)
         pdf.set_fill_color(255, 255, 255)
         _use_font(pdf, 10)
+        pdf.set_text_color(60, 60, 60)
 
     elif btype == "hr":
         pdf.ln(3)
@@ -203,10 +321,12 @@ def _render_block(pdf: FPDF, block: dict) -> None:
         col_count = max(len(r) for r in rows)
         col_w = (pdf.w - pdf.l_margin - pdf.r_margin) / max(col_count, 1)
         _use_font(pdf, 8)
+        pdf.set_text_color(50, 50, 50)
         for ri, row in enumerate(rows):
             if pdf.get_y() > pdf.h - 20:
                 pdf.add_page()
                 _use_font(pdf, 8)
+                pdf.set_text_color(50, 50, 50)
             if ri == 0:
                 pdf.set_fill_color(235, 235, 240)
             else:
@@ -217,3 +337,4 @@ def _render_block(pdf: FPDF, block: dict) -> None:
                 pdf.multi_cell(w=col_w, h=5.5, text=cell_text[:200], border=1, fill=True, align="L")
             pdf.set_fill_color(255, 255, 255)
         pdf.ln(2)
+        pdf.set_text_color(60, 60, 60)

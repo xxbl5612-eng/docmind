@@ -171,3 +171,56 @@ class TestSearchIndex:
         )
         # Without index, should return 503 or empty results
         assert resp.status_code in (200, 503)
+
+
+class TestPDFPageNumbers:
+    """Test page numbering added to PDF export service."""
+
+    def test_add_page_numbers_basic(self):
+        from src.services.pdf_export_service import add_page_numbers
+        # Create a minimal single-page PDF
+        import io
+        from pypdf import PdfWriter
+        writer = PdfWriter()
+        writer.add_blank_page(width=595, height=842)  # A4
+        buf = io.BytesIO()
+        writer.write(buf)
+        pdf_bytes = buf.getvalue()
+
+        result = add_page_numbers(pdf_bytes)
+        assert result is not None
+        assert len(result) > len(pdf_bytes)  # Page number adds content
+
+    def test_add_page_numbers_custom_format(self):
+        from src.services.pdf_export_service import add_page_numbers
+        import io
+        from pypdf import PdfWriter
+        writer = PdfWriter()
+        writer.add_blank_page(width=595, height=842)
+        buf = io.BytesIO()
+        writer.write(buf)
+        pdf_bytes = buf.getvalue()
+
+        result = add_page_numbers(pdf_bytes, format_str="{page}/{total}")
+        assert result is not None
+        # Verify the output is valid PDF
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(result))
+        assert len(reader.pages) == 1
+
+    def test_add_page_numbers_multi_page(self):
+        from src.services.pdf_export_service import add_page_numbers
+        import io
+        from pypdf import PdfWriter
+        writer = PdfWriter()
+        writer.add_blank_page(width=595, height=842)
+        writer.add_blank_page(width=595, height=842)
+        buf = io.BytesIO()
+        writer.write(buf)
+        pdf_bytes = buf.getvalue()
+
+        result = add_page_numbers(pdf_bytes)
+        assert result is not None
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(result))
+        assert len(reader.pages) == 2

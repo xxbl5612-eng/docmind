@@ -134,6 +134,16 @@ def _apply_pdf_post_processing(pdf_bytes: bytes, options: dict) -> bytes:
         except Exception:
             pass
 
+    if options.get("page_numbers"):
+        try:
+            from src.services.pdf_export_service import add_page_numbers
+            fmt = options.get("page_numbers_format", "Page {page} of {total}")
+            numbered = add_page_numbers(result, format_str=fmt)
+            if numbered:
+                result = numbered
+        except Exception:
+            pass
+
     if options.get("encrypt_password"):
         try:
             from src.services.pdf_export_service import encrypt_pdf

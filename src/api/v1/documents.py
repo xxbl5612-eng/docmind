@@ -265,6 +265,9 @@ async def export_document(
         opts["watermark_rotation"] = body.watermark_rotation
     if body.encrypt_password:
         opts["encrypt_password"] = body.encrypt_password
+    if body.page_numbers:
+        opts["page_numbers"] = True
+        opts["page_numbers_format"] = body.page_numbers_format
 
     task = celery_app.send_task(
         "src.workers.export_tasks.export_document",

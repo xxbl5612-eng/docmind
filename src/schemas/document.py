@@ -94,6 +94,8 @@ class ExportRequest(BaseModel):
     watermark_opacity: float = 0.3
     watermark_rotation: float = 45.0
     encrypt_password: str | None = None
+    page_numbers: bool = False
+    page_numbers_format: str = "Page {page} of {total}"
 
 
 class ExportStatusResponse(BaseModel):
