@@ -36,7 +36,6 @@ class User(_Base, UUIDMixin, TimestampMixin):
     collaborators = relationship("Collaborator", back_populates="user", foreign_keys="Collaborator.user_id")
     operation_logs = relationship("OperationLog", back_populates="user", foreign_keys="OperationLog.user_id")
     processing_jobs = relationship("AIProcessingJob", back_populates="user", foreign_keys="AIProcessingJob.user_id")
-    oauth_accounts = relationship("OAuthAccount", back_populates="user")
 
 
 class RefreshToken(_Base, UUIDMixin):

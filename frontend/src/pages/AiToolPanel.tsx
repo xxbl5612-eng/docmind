@@ -163,7 +163,7 @@ export default function AiToolPanel({ docId, doc, onClose }: Props) {
       });
       return;
     }
-    const contentKeys = ['summary', 'rewritten_text', 'proofread_text', 'extracted_data', 'answer', 'content', 'converted_content'];
+    const contentKeys = ['summary', 'rewritten_text', 'proofread_text', 'corrected_text', 'extracted_data', 'answer', 'content', 'converted_content'];
     let displayContent = '';
     const stats: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(result)) {

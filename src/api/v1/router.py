@@ -12,15 +12,11 @@ from src.api.v1.versions import router as versions_router
 from src.api.v1.collaboration import invitation_router, router as collaboration_router
 from src.api.v1.operations import router as operations_router
 from src.api.v1.admin import router as admin_router
-from src.api.v1.oauth import router as oauth_router
-from src.api.v1.github import router as github_router
 from src.api.v1.ai import router as ai_router
 
 v1_router = APIRouter(prefix="/api/v1")
 
 v1_router.include_router(auth_router)
-v1_router.include_router(oauth_router)
-v1_router.include_router(github_router)
 v1_router.include_router(users_router)
 v1_router.include_router(documents_router)
 v1_router.include_router(processing_router)
