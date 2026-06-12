@@ -11,14 +11,21 @@ FROM python:3.12-slim
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev \
+    build-essential libpq-dev curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Install cloudflared
+RUN curl -fsSL -o /usr/local/bin/cloudflared \
+    "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" \
+    && chmod +x /usr/local/bin/cloudflared
 
 COPY pyproject.toml ./
 RUN pip install --no-cache-dir -e "."
 
 COPY src/ ./src/
 COPY --from=frontend-builder /frontend/dist/ ./frontend/dist/
+COPY docker/start.sh ./start.sh
+RUN chmod +x ./start.sh
 
 RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
 USER app
@@ -28,6 +35,5 @@ EXPOSE 8000
 ENV USE_DEV_FALLBACK=true
 ENV APP_ENV=production
 ENV APP_DEBUG=false
-ENV APP_SECRET_KEY=railway-demo-secret-change-me
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./start.sh"]
