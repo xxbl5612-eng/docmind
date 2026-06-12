@@ -139,7 +139,7 @@ export default function AiToolPanel({ docId, doc, onClose }: Props) {
               toast(t('editor.task_completed'), 'success');
               handleToolResult(res.data.result_summary);
             } else {
-              toast(res.data.error_message || res.data.error || t('editor.task_failed'), 'error');
+              toast(res.data.error_message || t('editor.task_failed'), 'error');
             }
           }
         }
